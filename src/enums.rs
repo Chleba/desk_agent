@@ -1,25 +1,23 @@
-use crate::ollama_state::OllamaState;
-
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct OllamaTagsResult {
     pub models: Vec<OllamaModel>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
-struct OllamaModelDetail {
-    parent_model: String,
-    format: String,
-    family: String,
-    parameter_size: String,
-    quantization_level: String,
+pub struct OllamaModelDetail {
+    pub parent_model: String,
+    pub format: String,
+    pub family: String,
+    pub parameter_size: String,
+    pub quantization_level: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct OllamaModel {
-    name: String,
-    model: String,
-    size: u64,
-    details: OllamaModelDetail,
+    pub name: String,
+    pub model: String,
+    pub size: u64,
+    pub details: OllamaModelDetail,
 }
 
 #[derive(Clone, Debug)]

@@ -1,4 +1,4 @@
-use egui::{popup_below_widget, Id, PopupCloseBehavior, TextEdit};
+use egui::{popup_below_widget, CollapsingHeader, Id, PopupCloseBehavior, TextEdit};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
 use egui_form::{
     garde::{field_path, GardeReport},
@@ -7,7 +7,10 @@ use egui_form::{
 use garde::Validate;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::enums::{BroadcastMsg, OllamaModel};
+use crate::{
+    utils::bytes_convert,
+    enums::{BroadcastMsg, OllamaModel}
+};
 
 use super::Component;
 
@@ -95,6 +98,24 @@ impl Component for OllamaSettings {
                             }
                         });
                     });
+
+                for model in &self.models {
+                    CollapsingHeader::new(model.name.clone())
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            egui::Grid::new("model info:")
+                                .num_columns(2)
+                                .show(ui, |ui| {
+                                    ui.small("model:");
+                                    ui.small(model.model.clone());
+                                    ui.end_row();
+
+                                    ui.small("size:");
+                                    ui.small(bytes_convert(model.size as f64));
+                                    ui.end_row();
+                                });
+                        });
+                }
             },
         );
     }
