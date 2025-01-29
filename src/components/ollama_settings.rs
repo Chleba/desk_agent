@@ -1,15 +1,13 @@
-use egui::{popup_below_widget, FontId, Id, PopupCloseBehavior, RichText, TextEdit};
+use egui::{popup_below_widget, Id, PopupCloseBehavior, TextEdit};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
 use egui_form::{
     garde::{field_path, GardeReport},
     Form, FormField,
 };
-use egui_inbox::broadcast::Broadcast;
 use garde::Validate;
-// use futures::channel::mpsc::UnboundedSender;
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::enums::BroadcastMsg;
+use crate::enums::{BroadcastMsg, OllamaModel};
 
 use super::Component;
 
@@ -21,7 +19,7 @@ struct OllamaURL {
 
 pub struct OllamaSettings {
     url: OllamaURL,
-    // broadcast: Option<Broadcast<BroadcastMsg>>,
+    models: Vec<OllamaModel>,
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
 }
 
@@ -29,7 +27,7 @@ impl OllamaSettings {
     pub fn new() -> Self {
         Self {
             url: OllamaURL { url: String::new() },
-            // broadcast: None,
+            models: vec![],
             action_tx: None,
         }
     }
@@ -37,7 +35,15 @@ impl OllamaSettings {
 
 impl Component for OllamaSettings {
     fn update(&mut self, msg: BroadcastMsg) {
-        println!("{:?} OllamaSettings msg", msg);
+        match msg {
+            BroadcastMsg::OllamaURL(url) => {
+                self.url.url = url;
+            }
+            BroadcastMsg::OllamaModels(models) => {
+                self.models = models;
+            }
+            _ => {}
+        }
     }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
@@ -47,9 +53,13 @@ impl Component for OllamaSettings {
         let button_id = Id::new("ollama_popup");
         let button_res = ui.add(button);
 
+        let action_tx = self.action_tx.clone();
         if button_res.clicked() {
             ui.memory_mut(|mem| {
-                println!("OPEN SETTINGS");
+                if let Some(tx) = action_tx {
+                    let _ = tx.send(BroadcastMsg::GetOllamaURL);
+                    let _ = tx.send(BroadcastMsg::GetOllamaModels);
+                }
                 mem.toggle_popup(button_id);
             });
         }
@@ -60,9 +70,6 @@ impl Component for OllamaSettings {
             &button_res,
             PopupCloseBehavior::CloseOnClickOutside,
             |ui| {
-                // println!("OPEN SETTINGS");
-
-                // ui.set_min_width(310.0);
                 ui.set_width(310.0);
 
                 let mut form = Form::new().add_report(GardeReport::new(self.url.validate()));
@@ -77,17 +84,14 @@ impl Component for OllamaSettings {
                                 .ui(ui, TextEdit::singleline(&mut self.url.url));
                         });
 
-                        let broadcast = self.action_tx.clone();
+                        let action_tx = self.action_tx.clone();
 
                         flex.add_ui(FlexItem::new().grow(1.0), |ui| {
                             if let Some(Ok(())) = form.handle_submit(&ui.button("save"), ui) {
-
-                                if let Some(b) = broadcast {
-                                    println!("{} - submit",self.url.url);
-                                    let _ = b.send(BroadcastMsg::SetOllamaURL(self.url.url.clone()));
+                                if let Some(tx) = action_tx {
+                                    let _ =
+                                        tx.send(BroadcastMsg::SetOllamaURL(self.url.url.clone()));
                                 }
-
-                                println!("maslo save ollama url");
                             }
                         });
                     });
@@ -96,8 +100,6 @@ impl Component for OllamaSettings {
     }
 
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {
-    // fn register_tx(&mut self, broadcast: Broadcast<BroadcastMsg>) {
-        // self.broadcast = Some(broadcast);
         self.action_tx = Some(action_tx);
     }
 }

@@ -1,6 +1,4 @@
 use std::any::Any;
-use egui_inbox::broadcast::Broadcast;
-// use futures::channel::mpsc::UnboundedSender;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::enums::BroadcastMsg;
@@ -15,7 +13,6 @@ pub trait Component: Any {
     fn init(&mut self) {}
 
     #[allow(unused_variables)]
-    // fn register_tx(&mut self, broadcast: Broadcast<BroadcastMsg>) {}
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {}
 
     #[allow(unused_variables)]

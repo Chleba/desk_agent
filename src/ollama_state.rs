@@ -2,13 +2,13 @@ use crate::{
     enums::{BroadcastMsg, OllamaModel, OllamaTagsResult},
     utils::spawn,
 };
-use egui_inbox::broadcast::{self, Broadcast};
 use futures::TryFutureExt;
+use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(serde::Deserialize, Default, serde::Serialize, Debug, Clone)]
 pub struct OllamaState {
     #[serde(skip)]
-    broadcast: Option<Broadcast<BroadcastMsg>>,
+    action_tx: Option<UnboundedSender<BroadcastMsg>>,
     url: String,
     models: Vec<OllamaModel>,
 }
@@ -17,12 +17,13 @@ static OLLAMA_STATE_KEY: &str = "ollama_state";
 
 impl OllamaState {
     pub fn new(cc: &eframe::CreationContext<'_>, url: String) -> Self {
+        // -- get storage values
         if let Some(storage) = cc.storage {
             return eframe::get_value(storage, OLLAMA_STATE_KEY).unwrap_or_default();
         }
 
         Self {
-            broadcast: None,
+            action_tx: None,
             url,
             models: vec![],
         }
@@ -32,50 +33,59 @@ impl OllamaState {
         eframe::set_value(storage, OLLAMA_STATE_KEY, self);
     }
 
-    pub fn init(&mut self, broadcast: Broadcast<BroadcastMsg>) {
-        // spawn(Self::get_tags(self.url.clone(), broadcast.clone()));
-
-        self.broadcast = Some(broadcast);
+    pub fn init(&mut self) {
+        spawn(Self::get_tags(self.url.clone(), self.action_tx.clone()));
     }
 
     pub fn update(&mut self, msg: BroadcastMsg) {
+        let action_tx = self.action_tx.clone();
         match msg {
-            BroadcastMsg::OllamaMsg(bm) => {
-                println!("{:?}", bm);
-            },
             BroadcastMsg::SetOllamaURL(url) => {
-                self.url = url;
+                self.set_ollama_url(url);
+            }
+            BroadcastMsg::SetOllamaModels(models) => {
+                self.models = models;
+            }
+            BroadcastMsg::GetOllamaURL => {
+                if let Some(tx) = action_tx {
+                    let _ = tx.send(BroadcastMsg::OllamaURL(self.url.clone()));
+                }
+            }
+            BroadcastMsg::GetOllamaModels => {
+                if let Some(tx) = action_tx {
+                    let _ = tx.send(BroadcastMsg::OllamaModels(self.models.clone()));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn set_ollama_url(&mut self, url: String) {
+        self.url = url;
+        // -- ollama url has changed, we need to download new tags
+        if let Some(tx) = self.action_tx.clone() {
+            let _ = tx.send(BroadcastMsg::GetOllamaModels);
+        }
+    }
+
+    async fn get_tags(url: String, action_tx: Option<UnboundedSender<BroadcastMsg>>) {
+        let tags: Result<OllamaTagsResult, _> = reqwest::get(format!("{}/api/tags", url))
+            .and_then(reqwest::Response::json)
+            .await;
+
+        match tags {
+            Ok(t) => {
+                if let Some(tx) = action_tx {
+                    let _ = tx.send(BroadcastMsg::SetOllamaModels(t.models));
+                }
+            }
+            Err(e) => {
+                println!("{:?} - Error getting ollama tags", e);
             }
         }
     }
 
-    pub fn set_ollama_url(&mut self, url: String) {
-        self.url = url;
-    }
-
-    async fn get_tags(url: String, broadcast: Broadcast<BroadcastMsg>) {
-        let tags: OllamaTagsResult = reqwest::get(format!("{}/api/tags", url))
-            .and_then(reqwest::Response::json)
-            .await
-            .unwrap();
-
-        broadcast.send(BroadcastMsg::OllamaMsg(OllamaState {
-            url,
-            models: tags.clone().models,
-            broadcast: None,
-        }));
-
-        // let t_req = reqwest::get(url_txt).await;
-        // let t_req = reqwest::get("https://www.rust-lang.org").await;
-        // match t_req {
-        //     Ok(t) => println!("{:?}", t),
-        //     Err(e) => println!("{:?}", e),
-        // }
-        // let tags = reqwest::get(url_txt).await.un().text().await;
-        // match tags {
-        //     Ok(t) => println!("{:?}", t),
-        //     Err(e) => println!("{:?}", e),
-        // }
-        println!("lesbohovno {:?}", tags);
+    pub fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {
+        self.action_tx = Some(action_tx);
     }
 }

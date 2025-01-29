@@ -1,5 +1,3 @@
-use egui_inbox::broadcast::Broadcast;
-// use futures::channel::mpsc::UnboundedSender;
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::Component;
@@ -7,7 +5,6 @@ use crate::{components::ollama_settings::OllamaSettings, enums::BroadcastMsg};
 
 pub struct TopMenu {
     ollama_button: OllamaSettings,
-    // broadcast: Option<Broadcast<BroadcastMsg>>,
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
 }
 
@@ -15,7 +12,6 @@ impl TopMenu {
     pub fn new() -> Self {
         Self {
             ollama_button: OllamaSettings::new(),
-            // broadcast: None,
             action_tx: None,
         }
     }
@@ -40,11 +36,12 @@ impl Component for TopMenu {
         });
     }
 
+    fn update(&mut self, msg: BroadcastMsg) {
+        self.ollama_button.update(msg);
+    }
+
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {
-    // fn register_tx(&mut self, broadcast: egui_inbox::broadcast::Broadcast<crate::enums::BroadcastMsg>) {
-        // self.ollama_button.register_tx(broadcast.clone());
         self.ollama_button.register_tx(action_tx.clone());
-        // self.broadcast = Some(broadcast);
         self.action_tx = Some(action_tx);
     }
 }

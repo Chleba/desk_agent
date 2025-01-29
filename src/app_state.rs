@@ -1,16 +1,12 @@
 use crate::{enums::BroadcastMsg, ollama_state::OllamaState};
-use egui_inbox::broadcast::Broadcast;
-// use futures::channel::mpsc::UnboundedSender;
 use tokio::sync::mpsc::UnboundedSender;
 
 pub struct AppState {
-    // broadcast: Broadcast<BroadcastMsg>,
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
     ollama_state: OllamaState,
 }
 
 impl AppState {
-    // pub fn new(broadcast: Broadcast<BroadcastMsg>, cc: &eframe::CreationContext<'_>) -> Self {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         Self {
             action_tx: None,
@@ -19,8 +15,7 @@ impl AppState {
     }
 
     pub fn init(&mut self) {
-        // self.ollama_state.init(self.broadcast.clone());
-
+        self.ollama_state.init();
     }
 
     pub fn save(&mut self, storage: &mut dyn eframe::Storage) {
@@ -32,7 +27,7 @@ impl AppState {
     }
 
     pub fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {
+        self.ollama_state.register_tx(action_tx.clone());
         self.action_tx = Some(action_tx);
-
     }
 }
