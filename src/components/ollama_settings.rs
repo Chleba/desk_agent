@@ -1,4 +1,4 @@
-use egui::{popup_below_widget, CollapsingHeader, Id, PopupCloseBehavior, TextEdit};
+use egui::{popup_below_widget, CollapsingHeader, Color32, Id, PopupCloseBehavior, TextEdit, Vec2};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
 use egui_form::{
     garde::{field_path, GardeReport},
@@ -8,15 +8,16 @@ use garde::Validate;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
+    enums::{BroadcastMsg, OllamaModel},
     utils::bytes_convert,
-    enums::{BroadcastMsg, OllamaModel}
 };
 
 use super::Component;
 
 #[derive(Debug, Validate)]
 struct OllamaURL {
-    #[garde(length(min = 2, max = 150))]
+    // #[garde(length(min = 2, max = 150))]
+    #[garde(url)]
     url: String,
 }
 
@@ -99,12 +100,15 @@ impl Component for OllamaSettings {
                         });
                     });
 
+                ui.label("Models:");
                 for model in &self.models {
                     CollapsingHeader::new(model.name.clone())
                         .default_open(false)
                         .show(ui, |ui| {
                             egui::Grid::new("model info:")
                                 .num_columns(2)
+                                .striped(true)
+                                .spacing(Vec2 { x: 4.0, y: 0.0 })
                                 .show(ui, |ui| {
                                     ui.small("model:");
                                     ui.small(model.model.clone());
@@ -112,6 +116,14 @@ impl Component for OllamaSettings {
 
                                     ui.small("size:");
                                     ui.small(bytes_convert(model.size as f64));
+                                    ui.end_row();
+
+                                    ui.small("parameters:");
+                                    ui.small(model.details.parameter_size.clone());
+                                    ui.end_row();
+
+                                    ui.small("quantization:");
+                                    ui.small(model.details.quantization_level.clone());
                                     ui.end_row();
                                 });
                         });

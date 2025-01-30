@@ -1213,7 +1213,10 @@ checksum = "0a3233677ea1554a48235d81bb59d2a41654969a8e29a1316c48105fd1701693"
 dependencies = [
  "compact_str",
  "garde_derive",
+ "once_cell",
+ "regex",
  "smallvec",
+ "url",
 ]
 
 [[package]]
@@ -1224,6 +1227,7 @@ checksum = "8796f322e43105351a7ec35148807b32b5b6058a539656dafe4a5b456d5ca41f"
 dependencies = [
  "proc-macro2",
  "quote",
+ "regex",
  "syn",
 ]
 

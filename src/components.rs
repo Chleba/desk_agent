@@ -6,9 +6,11 @@ use crate::enums::BroadcastMsg;
 pub mod ollama_settings;
 pub mod top_menu;
 pub mod main_panel;
+pub mod agent_panel;
+pub mod chat_input;
+pub mod bottom_panel;
 
 pub trait Component: Any {
-
     #[allow(dead_code)]
     fn init(&mut self) {}
 

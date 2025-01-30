@@ -33,7 +33,7 @@ fn main() -> eframe::Result {
 
 
     eframe::run_native(
-        "eframe template",
+        "Desktop Assistant",
         native_options,
         Box::new(|cc| {
             // -- image loader 

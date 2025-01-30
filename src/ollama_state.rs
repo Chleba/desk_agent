@@ -34,7 +34,7 @@ impl OllamaState {
     }
 
     pub fn init(&mut self) {
-        spawn(Self::get_tags(self.url.clone(), self.action_tx.clone()));
+        self.send_get_tags();
     }
 
     pub fn update(&mut self, msg: BroadcastMsg) {
@@ -45,6 +45,9 @@ impl OllamaState {
             }
             BroadcastMsg::SetOllamaModels(models) => {
                 self.models = models;
+                if let Some(tx) = action_tx {
+                    let _ = tx.send(BroadcastMsg::OllamaModels(self.models.clone()));
+                }
             }
             BroadcastMsg::GetOllamaURL => {
                 if let Some(tx) = action_tx {
@@ -63,9 +66,11 @@ impl OllamaState {
     fn set_ollama_url(&mut self, url: String) {
         self.url = url;
         // -- ollama url has changed, we need to download new tags
-        if let Some(tx) = self.action_tx.clone() {
-            let _ = tx.send(BroadcastMsg::GetOllamaModels);
-        }
+        self.send_get_tags();
+    }
+
+    fn send_get_tags(&mut self) {
+        spawn(Self::get_tags(self.url.clone(), self.action_tx.clone()));
     }
 
     async fn get_tags(url: String, action_tx: Option<UnboundedSender<BroadcastMsg>>) {

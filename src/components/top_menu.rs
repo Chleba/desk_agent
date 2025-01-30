@@ -4,14 +4,14 @@ use super::Component;
 use crate::{components::ollama_settings::OllamaSettings, enums::BroadcastMsg};
 
 pub struct TopMenu {
-    ollama_button: OllamaSettings,
+    // ollama_button: OllamaSettings,
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
 }
 
 impl TopMenu {
     pub fn new() -> Self {
         Self {
-            ollama_button: OllamaSettings::new(),
+            // ollama_button: OllamaSettings::new(),
             action_tx: None,
         }
     }
@@ -28,20 +28,20 @@ impl Component for TopMenu {
                     }
                 });
 
-                // -- ollama menu button
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
-                    self.ollama_button.ui(ui); 
-                });
+                // // -- ollama menu button
+                // ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
+                //     self.ollama_button.ui(ui); 
+                // });
             });
         });
     }
 
     fn update(&mut self, msg: BroadcastMsg) {
-        self.ollama_button.update(msg);
+        // self.ollama_button.update(msg);
     }
 
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {
-        self.ollama_button.register_tx(action_tx.clone());
+        // self.ollama_button.register_tx(action_tx.clone());
         self.action_tx = Some(action_tx);
     }
 }
