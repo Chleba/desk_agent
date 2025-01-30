@@ -16,7 +16,6 @@ use super::Component;
 
 #[derive(Debug, Validate)]
 struct OllamaURL {
-    // #[garde(length(min = 2, max = 150))]
     #[garde(url)]
     url: String,
 }

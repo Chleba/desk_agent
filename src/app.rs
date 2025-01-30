@@ -72,7 +72,7 @@ impl eframe::App for DeskApp {
         }
 
         // -- set font size for whole app
-        ctx.set_pixels_per_point(1.25);
+        // ctx.set_pixels_per_point(1.25);
 
         // -- render components
         for component in self.components.iter_mut() {

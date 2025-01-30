@@ -1,7 +1,10 @@
 use super::Component;
 use crate::{components::ollama_settings::OllamaSettings, enums::BroadcastMsg};
-use egui::{Color32, ScrollArea};
+use egui::{Color32, Margin, ScrollArea};
+use egui_flex::{Flex, FlexAlignContent, FlexItem};
 use tokio::sync::mpsc::UnboundedSender;
+
+static SEND_BUTTON_SIZE:f32 = 100.0;
 
 pub struct ChatInput {
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
@@ -22,49 +25,34 @@ impl Component for ChatInput {
         self.action_tx = Some(action_tx);
     }
 
-    fn update(&mut self, _msg: BroadcastMsg) {
-    }
+    fn update(&mut self, _msg: BroadcastMsg) {}
 
     fn ui(&mut self, ui: &mut egui::Ui) {
-        ui.vertical(|ui| {
+        ui.add_space(8.0);
 
-            let input = egui::TextEdit::multiline(&mut self.input_text)
-                .hint_text("Type here..")
-                .show(ui);
+        Flex::horizontal()
+            .align_content(FlexAlignContent::Stretch)
+            .wrap(false)
+            .show(ui, |flex| {
+                flex.add_ui(FlexItem::default().grow(4.0), |ui| {
+                    let mut text_size = ui.available_size();
+                    text_size.x -= SEND_BUTTON_SIZE;
 
-        });
+                    ui.add_sized(
+                        text_size,
+                        egui::TextEdit::multiline(&mut self.input_text)
+                            .hint_text("Type here..")
+                            .margin(Margin::symmetric(14.0, 18.0)),
+                    );
+                });
+
+                flex.add_ui(FlexItem::default().basis(SEND_BUTTON_SIZE), |ui| {
+                    if ui.button("send").clicked() {
+                        println!("send chat msg");
+                    };
+                });
+            });
+
+        ui.add_space(8.0);
     }
-
-    // fn render(&mut self, ctx: &egui::Context) {
-    //     egui::CentralPanel::default().show(ctx, |ui| {
-    //         ui.horizontal(|ui| {
-    //             // -- ollama menu button
-    //             ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
-    //                 self.ollama_button.ui(ui);
-    //             });
-    //         });
-
-    //         ui.separator();
-    //         ui.add_space(8.0);
-
-    //         ui.vertical(|ui| {
-    //             egui::Frame::default()
-    //                 .stroke(egui::epaint::Stroke {
-    //                     color: Color32::from_rgb(100, 100, 100),
-    //                     width: 1.0,
-    //                 })
-    //                 .rounding(egui::epaint::Rounding::same(4.0))
-    //                 .show(ui, |ui| {
-    //                     ScrollArea::vertical()
-    //                         .animated(false)
-    //                         .max_height(500.0)
-    //                         .auto_shrink([false, false])
-    //                         .stick_to_bottom(true)
-    //                         .show(ui, |ui| {
-    //                             ui.label("MASLO FRAME CENTER");
-    //                         });
-    //                 });
-    //         });
-    //     });
-    // }
 }
