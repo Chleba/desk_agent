@@ -1,12 +1,13 @@
 use super::{chat_input::ChatInput, Component};
 use crate::{components::ollama_settings::OllamaSettings, enums::BroadcastMsg};
-use egui::ScrollArea;
+use egui::{Color32, RichText, ScrollArea};
 use tokio::sync::mpsc::UnboundedSender;
 
 pub struct MainPanel {
     ollama_button: OllamaSettings,
     chat_input: ChatInput,
 
+    ollama_connected: bool,
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
 }
 
@@ -15,6 +16,7 @@ impl MainPanel {
         Self {
             ollama_button: OllamaSettings::new(),
             chat_input: ChatInput::new(),
+            ollama_connected: false,
             action_tx: None,
         }
     }
@@ -30,7 +32,11 @@ impl Component for MainPanel {
 
     fn update(&mut self, msg: BroadcastMsg) {
         self.ollama_button.update(msg.clone());
-        self.chat_input.update(msg);
+        self.chat_input.update(msg.clone());
+
+        if let BroadcastMsg::OllamaRunning(r) = msg {
+            self.ollama_connected = r.is_ok()
+        }
     }
 
     fn render(&mut self, ctx: &egui::Context) {
@@ -39,6 +45,11 @@ impl Component for MainPanel {
                 // -- ollama menu button
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
                     self.ollama_button.ui(ui);
+                    if !self.ollama_connected {
+                        ui.small(RichText::new("not connected").color(Color32::from_rgb(255, 0, 0)));
+                    } else {
+                        ui.small(RichText::new("connected").color(Color32::from_rgb(0, 255, 0)));
+                    }
                 });
             });
 

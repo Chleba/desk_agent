@@ -1,10 +1,10 @@
 use super::Component;
-use crate::{components::ollama_settings::OllamaSettings, enums::BroadcastMsg};
-use egui::{Color32, Margin, ScrollArea};
+use crate::enums::BroadcastMsg;
+use egui::Margin;
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
 use tokio::sync::mpsc::UnboundedSender;
 
-static SEND_BUTTON_SIZE:f32 = 100.0;
+static SEND_BUTTON_SIZE: f32 = 100.0;
 
 pub struct ChatInput {
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
@@ -47,9 +47,11 @@ impl Component for ChatInput {
                 });
 
                 flex.add_ui(FlexItem::default().basis(SEND_BUTTON_SIZE), |ui| {
-                    if ui.button("send").clicked() {
+                    let send_button =
+                        ui.add_sized([90.0, ui.available_height()], egui::Button::new("send"));
+                    if send_button.clicked() {
                         println!("send chat msg");
-                    };
+                    }
                 });
             });
 

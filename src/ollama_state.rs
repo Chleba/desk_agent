@@ -1,8 +1,11 @@
+use std::fmt::format;
+
 use crate::{
     enums::{BroadcastMsg, OllamaModel, OllamaTagsResult},
     utils::spawn,
 };
 use futures::TryFutureExt;
+use serde::de::Error;
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(serde::Deserialize, Default, serde::Serialize, Debug, Clone)]
@@ -34,6 +37,7 @@ impl OllamaState {
     }
 
     pub fn init(&mut self) {
+        self.send_check_ollama_url();
         self.send_get_tags();
     }
 
@@ -63,8 +67,35 @@ impl OllamaState {
         }
     }
 
+    fn send_check_ollama_url(&mut self) {
+        spawn(Self::check_ollama_url(self.url.clone(), self.action_tx.clone()));
+    }
+
+    async fn check_ollama_url(url: String, action_tx: Option<UnboundedSender<BroadcastMsg>>) {
+        let ollama_status = reqwest::get(url)
+            .and_then(reqwest::Response::text)
+            .await;
+        match ollama_status {
+            Ok(s) => {
+                if s == "Ollama is running" {
+                    if let Some(tx) = action_tx {
+                        let _ = tx.send(BroadcastMsg::OllamaRunning(Ok(())));
+                    }
+                }
+            }
+            Err(_e) => {
+                if let Some(tx) = action_tx {
+                    let _ = tx.send(BroadcastMsg::OllamaRunning(Err("Ollama is not running".to_string())));
+                }
+            }
+        }
+    }
+
     fn set_ollama_url(&mut self, url: String) {
         self.url = url;
+
+        // -- check if ollama is connected
+        self.send_check_ollama_url();
         // -- ollama url has changed, we need to download new tags
         self.send_get_tags();
     }
