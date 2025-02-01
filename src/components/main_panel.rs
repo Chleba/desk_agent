@@ -23,6 +23,11 @@ impl MainPanel {
 }
 
 impl Component for MainPanel {
+    fn init(&mut self) {
+        self.ollama_button.init();
+        self.chat_input.init();
+    }
+
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {
         self.ollama_button.register_tx(action_tx.clone());
         self.chat_input.register_tx(action_tx.clone());
@@ -46,7 +51,9 @@ impl Component for MainPanel {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::RIGHT), |ui| {
                     self.ollama_button.ui(ui);
                     if !self.ollama_connected {
-                        ui.small(RichText::new("not connected").color(Color32::from_rgb(255, 0, 0)));
+                        ui.small(
+                            RichText::new("not connected").color(Color32::from_rgb(255, 0, 0)),
+                        );
                     } else {
                         ui.small(RichText::new("connected").color(Color32::from_rgb(0, 255, 0)));
                     }

@@ -3,8 +3,8 @@
 
 fn main() -> eframe::Result {
     // Log to stderr (if you run with `RUST_LOG=debug`).
-    env_logger::init(); 
-    
+    env_logger::init();
+
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -15,7 +15,7 @@ fn main() -> eframe::Result {
     std::thread::spawn(move || {
         rt.block_on(async {
             loop {
-                tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(36000)).await;
             }
         });
     });
@@ -31,12 +31,11 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-
     eframe::run_native(
         "Desktop Assistant",
         native_options,
         Box::new(|cc| {
-            // -- image loader 
+            // -- image loader
             egui_extras::install_image_loaders(&cc.egui_ctx);
 
             // -- app
@@ -47,4 +46,3 @@ fn main() -> eframe::Result {
         }),
     )
 }
-

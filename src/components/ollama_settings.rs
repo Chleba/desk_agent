@@ -1,4 +1,6 @@
-use egui::{popup_below_widget, CollapsingHeader, Color32, Id, PopupCloseBehavior, TextEdit, Vec2};
+use std::time::Duration;
+
+use egui::{popup_below_widget, CollapsingHeader, Id, PopupCloseBehavior, TextEdit, Vec2};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
 use egui_form::{
     garde::{field_path, GardeReport},
@@ -9,7 +11,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     enums::{BroadcastMsg, OllamaModel},
-    utils::bytes_convert,
+    utils::{bytes_convert, sleep, spawn},
 };
 
 use super::Component;
@@ -34,9 +36,23 @@ impl OllamaSettings {
             action_tx: None,
         }
     }
+
+    async fn period_ollama_status(action_tx: Option<UnboundedSender<BroadcastMsg>>) {
+        loop {
+            sleep(Duration::from_secs(1)).await;
+
+            if let Some(tx) = action_tx.clone() {
+                let _ = tx.send(BroadcastMsg::GetOllamaRunning);
+            }
+        }
+    }
 }
 
 impl Component for OllamaSettings {
+    fn init(&mut self) {
+        spawn(Self::period_ollama_status(self.action_tx.clone()));
+    }
+
     fn update(&mut self, msg: BroadcastMsg) {
         match msg {
             BroadcastMsg::OllamaURL(url) => {

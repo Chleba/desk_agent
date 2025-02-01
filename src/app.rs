@@ -41,11 +41,18 @@ impl DeskApp {
     }
 
     pub fn init(&mut self) {
-        self.register_broadcast();
+        self.init_components();
+        self.register_tx();
         self.app_state.init();
     }
 
-    fn register_broadcast(&mut self) {
+    fn init_components(&mut self) {
+        for component in self.components.iter_mut() {
+            component.init();
+        }
+    }
+
+    fn register_tx(&mut self) {
         let action_tx = &self.action_tx;
 
         self.app_state.register_tx(action_tx.clone());

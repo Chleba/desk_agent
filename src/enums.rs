@@ -23,13 +23,14 @@ pub struct OllamaModel {
 #[derive(Clone, Debug)]
 pub enum BroadcastMsg {
     OllamaRunning(Result<(), String>),
+    GetOllamaRunning,
 
     SetOllamaURL(String),
     SetOllamaModels(Vec<OllamaModel>),
-    
+
     GetOllamaURL,
     OllamaURL(String),
 
     GetOllamaModels,
-    OllamaModels(Vec<OllamaModel>)
+    OllamaModels(Vec<OllamaModel>),
 }
