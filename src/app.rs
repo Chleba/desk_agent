@@ -1,7 +1,7 @@
 use crate::{
     app_state::AppState,
     components::{
-        agent_panel::AgentPanel, bottom_panel::ChatBottomPanel, main_panel::MainPanel,
+        agents_panel::AgentPanel, bottom_panel::ChatBottomPanel, main_panel::MainPanel,
         top_menu::TopMenu, Component,
     },
     enums::BroadcastMsg,

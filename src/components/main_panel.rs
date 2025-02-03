@@ -23,6 +23,10 @@ impl MainPanel {
 }
 
 impl Component for MainPanel {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn init(&mut self) {
         self.ollama_button.init();
         self.chat_input.init();

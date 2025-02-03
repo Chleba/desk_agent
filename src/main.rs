@@ -32,7 +32,7 @@ fn main() -> eframe::Result {
     };
 
     eframe::run_native(
-        "Desktop Assistant",
+        "Desktop Agent",
         native_options,
         Box::new(|cc| {
             // -- image loader

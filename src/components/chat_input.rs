@@ -21,6 +21,10 @@ impl ChatInput {
 }
 
 impl Component for ChatInput {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {
         self.action_tx = Some(action_tx);
     }

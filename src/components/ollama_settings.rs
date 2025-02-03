@@ -49,6 +49,10 @@ impl OllamaSettings {
 }
 
 impl Component for OllamaSettings {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn init(&mut self) {
         spawn(Self::period_ollama_status(self.action_tx.clone()));
     }

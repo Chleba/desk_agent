@@ -17,6 +17,10 @@ impl ChatBottomPanel {
 }
 
 impl Component for ChatBottomPanel {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {
         self.chat_input.register_tx(action_tx.clone());
 

@@ -3,7 +3,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::enums::BroadcastMsg;
 
-pub mod agent_panel;
+pub mod agents_panel;
 pub mod bottom_panel;
 pub mod chat_input;
 pub mod main_panel;
@@ -12,6 +12,9 @@ pub mod top_menu;
 
 pub trait Component: Any {
     fn init(&mut self) {}
+
+    #[allow(unused_variables)]
+    fn as_any(&self) -> &dyn Any;
 
     #[allow(unused_variables)]
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {}
