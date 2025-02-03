@@ -1,6 +1,10 @@
 use super::Component;
 use crate::{
-    agents::{chat::ChatAgent, Agent, AgentComponent},
+    agents::{
+        chat::ChatAgent,
+        websearch::{self, WebSearchAgent},
+        Agent, AgentComponent,
+    },
     enums::{BroadcastMsg, OllamaModel},
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -8,31 +12,24 @@ use tokio::sync::mpsc::UnboundedSender;
 pub struct AgentPanel {
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
     models: Vec<OllamaModel>,
-    // agents: Vec<Box<dyn Component + Agent>>,
-    // agents: Vec<Box<dyn Component>>,
     agents: Vec<Box<dyn AgentComponent>>,
 }
 
 impl AgentPanel {
     pub fn new() -> Self {
         let chat_agent = ChatAgent::new();
+        let websearch_agent = WebSearchAgent::new();
 
         Self {
             action_tx: None,
             models: vec![],
-            agents: vec![Box::new(chat_agent)],
+            agents: vec![Box::new(chat_agent), Box::new(websearch_agent)],
         }
     }
 
     fn add_models_to_agens(&mut self) {
         for agent in self.agents.iter_mut() {
             agent.set_models(self.models.clone());
-            // if let Some(a) = agent.as_any().downcast_ref::<&mut dyn Agent>() {
-            //     a.set_models(self.models.clone());
-            // }
-            // let agent = agent.as_ref() as &dyn Agent;
-            // agent.set_models(self.models.clone());
-            // // agent.register_tx(action_tx.clone());
         }
     }
 }
