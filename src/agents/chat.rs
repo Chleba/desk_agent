@@ -4,6 +4,7 @@ use crate::{
     app_state::AppState,
     components::Component,
     enums::{AgentEnum, BroadcastMsg, OllamaModel},
+    utils::spawn,
 };
 use egui::{Color32, Frame, Id, Sense, UiBuilder};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
@@ -18,7 +19,7 @@ pub struct ChatAgent {
     models: Vec<OllamaModel>,
     active_model: Option<OllamaModel>,
     history: Vec<ChatMessage>,
-    coordinator: Option<Coordinator<Vec<ChatMessage>, ()>>,
+    coordinator: Option<Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>>>,
 }
 
 impl ChatAgent {
@@ -31,6 +32,38 @@ impl ChatAgent {
             history: vec![],
             coordinator: None,
         }
+    }
+
+    fn msg_to_coordinator(&mut self, msg: String) {
+        if let Some(coordinator) = self.coordinator.clone() {
+            spawn(Self::send_chat_msg(
+                self.action_tx.clone(),
+                coordinator,
+                msg.clone(),
+            ));
+
+            // spawn(|| {
+            //     let _ = coordinator.chat(vec![ChatMessage::user(msg)]).await;
+            // })
+        }
+    }
+
+    async fn send_chat_msg(
+        action_tx: Option<UnboundedSender<BroadcastMsg>>,
+        coordinator: Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>>,
+        msg: String,
+    ) {
+        let resp = coordinator
+            .lock()
+            .await
+            .chat(vec![ChatMessage::user(msg)])
+            .await
+            .unwrap();
+
+        if let Some(tx) = action_tx {
+            let _ = tx.send(BroadcastMsg::GetChatReponse(resp.message.content.clone()));
+        }
+        println!("{:?} CHAT RESPONSE", resp);
     }
 }
 
@@ -54,7 +87,11 @@ impl Agent for ChatAgent {
                 if !models.is_empty() {
                     let ollama = Ollama::default();
                     let model = models[0].name.clone();
-                    self.coordinator = Some(Coordinator::new(ollama, model, self.history.clone()));
+                    self.coordinator = Some(Arc::new(tokio::sync::Mutex::new(Coordinator::new(
+                        ollama,
+                        model,
+                        self.history.clone(),
+                    ))));
                 }
             }
         } else {
@@ -86,6 +123,12 @@ impl Component for ChatAgent {
                 if !self.models.is_empty() {
                     self.active_model = Some(models[0].clone());
                 }
+            }
+            BroadcastMsg::SendUserMessage(msg) => {
+                self.msg_to_coordinator(msg);
+                // if Some(coordinator) = self.coordinator {
+                //
+                // }
             }
             _ => {}
         }

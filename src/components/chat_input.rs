@@ -18,6 +18,12 @@ impl ChatInput {
             input_text: String::new(),
         }
     }
+
+    fn send_user_msg(&mut self, msg: String) {
+        if let Some(tx) = self.action_tx.clone() {
+            let _ = tx.send(BroadcastMsg::SendUserMessage(msg));
+        }
+    }
 }
 
 impl Component for ChatInput {
@@ -54,7 +60,8 @@ impl Component for ChatInput {
                     let send_button =
                         ui.add_sized([90.0, ui.available_height()], egui::Button::new("send"));
                     if send_button.clicked() {
-                        println!("send chat msg");
+                        self.send_user_msg(self.input_text.clone());
+                        self.input_text = String::new();
                     }
                 });
             });
