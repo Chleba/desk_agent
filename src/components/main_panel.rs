@@ -54,6 +54,8 @@ impl Component for MainPanel {
     }
 
     fn render(&mut self, ctx: &egui::Context) {
+        ctx.request_repaint_after_secs(1.0);
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
                 // -- ollama menu button

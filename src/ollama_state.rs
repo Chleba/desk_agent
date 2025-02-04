@@ -10,6 +10,7 @@ pub struct OllamaState {
     #[serde(skip)]
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
     pub url: String,
+    #[serde(skip)]
     pub models: Vec<OllamaModel>,
 }
 

@@ -8,7 +8,6 @@ use crate::{
 };
 use egui::{Color32, Frame, Id, Sense, UiBuilder};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
-use futures::lock;
 use ollama_rs::{coordinator::Coordinator, generation::chat::ChatMessage, Ollama};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -35,7 +34,6 @@ impl ChatAgent {
         }
     }
 
-    // fn msg_to_coordinator(&mut self, msg: String) {
     fn msg_to_coordinator(&mut self, msg: ChatMessage) {
         if let Some(coordinator) = self.coordinator.clone() {
             spawn(Self::send_chat_msg(
@@ -57,6 +55,18 @@ impl ChatAgent {
             let _ = tx.send(BroadcastMsg::GetChatReponse(resp.message.clone()));
         }
         println!("{:?} CHAT RESPONSE", resp);
+    }
+
+    fn change_active_model(&mut self) {
+        let ollama = Ollama::default();
+        if let Some(active_model) = self.active_model.clone() {
+            let model = active_model.name.clone();
+            self.coordinator = Some(Arc::new(tokio::sync::Mutex::new(Coordinator::new(
+                ollama,
+                model,
+                self.history.clone(),
+            ))));
+        }
     }
 }
 
@@ -118,7 +128,7 @@ impl Component for ChatAgent {
             }
             BroadcastMsg::OllamaModels(models) => {
                 self.models = models.clone();
-                if !self.models.is_empty() {
+                if !self.models.is_empty() && self.active_model.is_none() {
                     self.active_model = Some(models[0].clone());
                 }
             }
@@ -156,6 +166,8 @@ impl Component for ChatAgent {
                                                 ui.label(self.name().to_string());
                                                 ui.end_row();
 
+                                                let previous_value = self.active_model.clone();
+
                                                 ui.small("model:");
                                                 if let Some(m) = self.active_model.clone() {
                                                     egui::ComboBox::from_id_salt(Id::new(format!(
@@ -174,6 +186,10 @@ impl Component for ChatAgent {
                                                             );
                                                         }
                                                     });
+
+                                                    if self.active_model != previous_value {
+                                                        self.change_active_model();
+                                                    }
                                                 }
                                                 ui.end_row();
                                             });

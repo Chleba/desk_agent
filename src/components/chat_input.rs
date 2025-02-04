@@ -1,6 +1,6 @@
 use super::Component;
 use crate::enums::BroadcastMsg;
-use egui::Margin;
+use egui::{KeyboardShortcut, Margin, Modifiers};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
 use ollama_rs::generation::chat::ChatMessage;
 use tokio::sync::mpsc::UnboundedSender;
@@ -54,9 +54,14 @@ impl Component for ChatInput {
                     ui.add_sized(
                         text_size,
                         egui::TextEdit::multiline(&mut self.input_text)
+                            .return_key(KeyboardShortcut::new(Modifiers::SHIFT, egui::Key::Enter))
                             .hint_text("Type here..")
                             .margin(Margin::symmetric(14.0, 18.0)),
                     );
+                    if ui.input(|i| i.key_pressed(egui::Key::Enter) && i.modifiers.is_none()) {
+                        self.send_user_msg(self.input_text.clone());
+                        self.input_text = String::new();
+                    }
                 });
 
                 flex.add_ui(FlexItem::default().basis(SEND_BUTTON_SIZE), |ui| {
