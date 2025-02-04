@@ -1,7 +1,10 @@
-use std::any::Any;
+use std::{
+    any::Any,
+    sync::{Arc, Mutex},
+};
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::enums::BroadcastMsg;
+use crate::{app_state::AppState, enums::BroadcastMsg};
 
 pub mod agents_panel;
 pub mod bottom_panel;
@@ -13,11 +16,14 @@ pub mod top_menu;
 pub trait Component: Any {
     fn init(&mut self) {}
 
-    #[allow(unused_variables)]
+    #[allow(dead_code)]
     fn as_any(&self) -> &dyn Any;
 
     #[allow(unused_variables)]
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {}
+
+    #[allow(unused_variables)]
+    fn register_app_state(&mut self, app_state: Arc<Mutex<AppState>>) {}
 
     #[allow(unused_variables)]
     fn render(&mut self, ctx: &egui::Context) {}

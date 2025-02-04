@@ -1,6 +1,6 @@
 use crate::{
     components::Component,
-    enums::{BroadcastMsg, OllamaModel},
+    enums::{AgentEnum, BroadcastMsg, OllamaModel},
 };
 use egui::{Frame, Label, RichText, Sense, UiBuilder};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
@@ -31,8 +31,8 @@ impl Agent for WebSearchAgent {
         "Browserless web searching agent"
     }
 
-    fn set_models(&mut self, models: Vec<OllamaModel>) {
-        self.models = models;
+    fn agent(&self) -> crate::enums::AgentEnum {
+        AgentEnum::WebSearch
     }
 }
 

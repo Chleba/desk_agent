@@ -3,7 +3,7 @@ pub struct OllamaTagsResult {
     pub models: Vec<OllamaModel>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq)]
 pub struct OllamaModelDetail {
     pub parent_model: String,
     pub format: String,
@@ -12,7 +12,7 @@ pub struct OllamaModelDetail {
     pub quantization_level: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, PartialEq)]
 pub struct OllamaModel {
     pub name: String,
     pub model: String,
@@ -20,7 +20,13 @@ pub struct OllamaModel {
     pub details: OllamaModelDetail,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+pub enum AgentEnum {
+    Chat,
+    WebSearch,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum BroadcastMsg {
     OllamaRunning(Result<(), String>),
     GetOllamaRunning,
@@ -33,4 +39,6 @@ pub enum BroadcastMsg {
 
     GetOllamaModels,
     OllamaModels(Vec<OllamaModel>),
+
+    SelectAgent(AgentEnum),
 }

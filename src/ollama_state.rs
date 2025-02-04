@@ -1,19 +1,16 @@
-use std::fmt::format;
-
 use crate::{
     enums::{BroadcastMsg, OllamaModel, OllamaTagsResult},
     utils::spawn,
 };
 use futures::TryFutureExt;
-use serde::de::Error;
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(serde::Deserialize, Default, serde::Serialize, Debug, Clone)]
 pub struct OllamaState {
     #[serde(skip)]
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
-    url: String,
-    models: Vec<OllamaModel>,
+    pub url: String,
+    pub models: Vec<OllamaModel>,
 }
 
 static OLLAMA_STATE_KEY: &str = "ollama_state";
@@ -68,13 +65,14 @@ impl OllamaState {
     }
 
     fn send_check_ollama_url(&mut self) {
-        spawn(Self::check_ollama_url(self.url.clone(), self.action_tx.clone()));
+        spawn(Self::check_ollama_url(
+            self.url.clone(),
+            self.action_tx.clone(),
+        ));
     }
 
     async fn check_ollama_url(url: String, action_tx: Option<UnboundedSender<BroadcastMsg>>) {
-        let ollama_status = reqwest::get(url)
-            .and_then(reqwest::Response::text)
-            .await;
+        let ollama_status = reqwest::get(url).and_then(reqwest::Response::text).await;
         match ollama_status {
             Ok(s) => {
                 if s == "Ollama is running" {
@@ -85,7 +83,9 @@ impl OllamaState {
             }
             Err(_e) => {
                 if let Some(tx) = action_tx {
-                    let _ = tx.send(BroadcastMsg::OllamaRunning(Err("Ollama is not running".to_string())));
+                    let _ = tx.send(BroadcastMsg::OllamaRunning(Err(
+                        "Ollama is not running".to_string()
+                    )));
                 }
             }
         }
