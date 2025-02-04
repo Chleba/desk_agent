@@ -8,6 +8,7 @@ use crate::{
 };
 use egui::{Color32, Frame, Id, Sense, UiBuilder};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
+use futures::lock;
 use ollama_rs::{coordinator::Coordinator, generation::chat::ChatMessage, Ollama};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -41,10 +42,6 @@ impl ChatAgent {
                 coordinator,
                 msg.clone(),
             ));
-
-            // spawn(|| {
-            //     let _ = coordinator.chat(vec![ChatMessage::user(msg)]).await;
-            // })
         }
     }
 
@@ -107,6 +104,11 @@ impl Component for ChatAgent {
 
     fn register_app_state(&mut self, app_state: Arc<Mutex<AppState>>) {
         self.app_state = Some(app_state);
+
+        if let Some(aps) = self.app_state.clone() {
+            let agent = aps.lock().unwrap().active_agent.clone();
+            self.select_agent(agent);
+        }
     }
 
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {
