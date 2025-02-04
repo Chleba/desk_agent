@@ -2,6 +2,7 @@ use super::Component;
 use crate::enums::BroadcastMsg;
 use egui::Margin;
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
+use ollama_rs::generation::chat::ChatMessage;
 use tokio::sync::mpsc::UnboundedSender;
 
 static SEND_BUTTON_SIZE: f32 = 100.0;
@@ -21,7 +22,9 @@ impl ChatInput {
 
     fn send_user_msg(&mut self, msg: String) {
         if let Some(tx) = self.action_tx.clone() {
-            let _ = tx.send(BroadcastMsg::SendUserMessage(msg));
+            let chat_msg = ChatMessage::user(msg);
+            let _ = tx.send(BroadcastMsg::SendUserMessage(chat_msg));
+            // let _ = tx.send(BroadcastMsg::SendUserMessage(msg));
         }
     }
 }

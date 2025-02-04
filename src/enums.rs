@@ -1,3 +1,5 @@
+use ollama_rs::generation::chat::ChatMessage;
+
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct OllamaTagsResult {
     pub models: Vec<OllamaModel>,
@@ -26,7 +28,8 @@ pub enum AgentEnum {
     WebSearch,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+// #[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum BroadcastMsg {
     OllamaRunning(Result<(), String>),
     GetOllamaRunning,
@@ -42,6 +45,8 @@ pub enum BroadcastMsg {
 
     SelectAgent(AgentEnum),
 
-    SendUserMessage(String),
-    GetChatReponse(String),
+    // SendUserMessage(String),
+    SendUserMessage(ChatMessage),
+    // GetChatReponse(String),
+    GetChatReponse(ChatMessage),
 }

@@ -10,6 +10,7 @@ pub mod agents_panel;
 pub mod bottom_panel;
 pub mod chat_input;
 pub mod main_panel;
+pub mod messages;
 pub mod ollama_settings;
 pub mod top_menu;
 

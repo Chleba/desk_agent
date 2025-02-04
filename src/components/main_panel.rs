@@ -1,4 +1,4 @@
-use super::{chat_input::ChatInput, Component};
+use super::{chat_input::ChatInput, messages::Messages, Component};
 use crate::{components::ollama_settings::OllamaSettings, enums::BroadcastMsg};
 use egui::{Color32, RichText, ScrollArea};
 use tokio::sync::mpsc::UnboundedSender;
@@ -6,6 +6,7 @@ use tokio::sync::mpsc::UnboundedSender;
 pub struct MainPanel {
     ollama_button: OllamaSettings,
     chat_input: ChatInput,
+    messages: Messages,
 
     ollama_connected: bool,
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
@@ -16,6 +17,8 @@ impl MainPanel {
         Self {
             ollama_button: OllamaSettings::new(),
             chat_input: ChatInput::new(),
+            messages: Messages::new(),
+
             ollama_connected: false,
             action_tx: None,
         }
@@ -35,6 +38,7 @@ impl Component for MainPanel {
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {
         self.ollama_button.register_tx(action_tx.clone());
         self.chat_input.register_tx(action_tx.clone());
+        self.messages.register_tx(action_tx.clone());
 
         self.action_tx = Some(action_tx);
     }
@@ -42,6 +46,7 @@ impl Component for MainPanel {
     fn update(&mut self, msg: BroadcastMsg) {
         self.ollama_button.update(msg.clone());
         self.chat_input.update(msg.clone());
+        self.messages.update(msg.clone());
 
         if let BroadcastMsg::OllamaRunning(r) = msg {
             self.ollama_connected = r.is_ok()
@@ -76,6 +81,7 @@ impl Component for MainPanel {
                         .stick_to_bottom(true)
                         .show(ui, |ui| {
                             ui.label("MASLO FRAME CENTER");
+                            self.messages.ui(ui);
                         });
                 });
             });

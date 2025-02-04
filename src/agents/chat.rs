@@ -35,7 +35,8 @@ impl ChatAgent {
         }
     }
 
-    fn msg_to_coordinator(&mut self, msg: String) {
+    // fn msg_to_coordinator(&mut self, msg: String) {
+    fn msg_to_coordinator(&mut self, msg: ChatMessage) {
         if let Some(coordinator) = self.coordinator.clone() {
             spawn(Self::send_chat_msg(
                 self.action_tx.clone(),
@@ -48,17 +49,12 @@ impl ChatAgent {
     async fn send_chat_msg(
         action_tx: Option<UnboundedSender<BroadcastMsg>>,
         coordinator: Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>>,
-        msg: String,
+        msg: ChatMessage,
     ) {
-        let resp = coordinator
-            .lock()
-            .await
-            .chat(vec![ChatMessage::user(msg)])
-            .await
-            .unwrap();
+        let resp = coordinator.lock().await.chat(vec![msg]).await.unwrap();
 
         if let Some(tx) = action_tx {
-            let _ = tx.send(BroadcastMsg::GetChatReponse(resp.message.content.clone()));
+            let _ = tx.send(BroadcastMsg::GetChatReponse(resp.message.clone()));
         }
         println!("{:?} CHAT RESPONSE", resp);
     }
@@ -128,9 +124,6 @@ impl Component for ChatAgent {
             }
             BroadcastMsg::SendUserMessage(msg) => {
                 self.msg_to_coordinator(msg);
-                // if Some(coordinator) = self.coordinator {
-                //
-                // }
             }
             _ => {}
         }
