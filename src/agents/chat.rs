@@ -91,7 +91,7 @@ impl ChatAgent {
             .show(ui, |ui| {
                 ui.small("system message:");
                 ui.add_sized(
-                    [ui.available_width(), 50.0],
+                    [200.0, 50.0],
                     egui::TextEdit::multiline(&mut self.sys_msg)
                         .return_key(KeyboardShortcut::new(Modifiers::SHIFT, egui::Key::Enter))
                         .desired_rows(2)
