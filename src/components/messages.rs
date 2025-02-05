@@ -1,22 +1,20 @@
-use super::{chat_input::ChatInput, Component};
+use super::Component;
 use crate::{
-    components::ollama_settings::OllamaSettings, enums::BroadcastMsg, utils::animate_continuous,
+    enums::{AgentEnum, BroadcastMsg},
+    utils::animate_continuous,
 };
-use std::time::Duration;
-// use egui::{Align, Color32, Layout, RichText, ScrollArea, Widget};
 use eframe::emath::Vec2;
-use egui::{
-    Align, Frame, Label, Layout, Rect, RichText, Rounding, ScrollArea, Shape, Stroke, Ui,
-    UiBuilder, Widget,
-};
+use egui::{Align, Frame, Layout, Rect, RichText, Rounding, Shape, Stroke};
 use egui_infinite_scroll::InfiniteScroll;
 use ollama_rs::generation::chat::{ChatMessage, MessageRole};
+use std::time::Duration;
 use tokio::sync::mpsc::UnboundedSender;
 
 pub struct Messages {
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
     messages: InfiniteScroll<ChatMessage, usize>,
     recieving_message: bool,
+    last_active_agent: Option<AgentEnum>,
 }
 
 impl Messages {
@@ -26,10 +24,11 @@ impl Messages {
 
         Self {
             action_tx: None,
-            messages: infinite_scroll.start_loader(move |cursor, cb| {
+            messages: infinite_scroll.start_loader(move |_cursor, _cb| {
                 println!("loading messages");
             }),
             recieving_message: false,
+            last_active_agent: None,
         }
     }
 }
@@ -54,6 +53,20 @@ impl Component for Messages {
             BroadcastMsg::GetChatReponse(m) => {
                 self.messages.items.push(m);
                 self.recieving_message = false;
+            }
+            BroadcastMsg::SelectAgent(agent) => {
+                if let Some(a) = self.last_active_agent.clone() {
+                    if a != agent {
+                        self.last_active_agent = Some(agent);
+                        self.messages.items.clear();
+                    }
+                } else {
+                    self.last_active_agent = Some(agent);
+                    self.messages.items.clear();
+                }
+            }
+            BroadcastMsg::SelectAgentModel(_model) => {
+                self.messages.items.clear();
             }
             _ => {}
         }
@@ -82,7 +95,7 @@ impl Component for Messages {
                 };
 
                 let content = RichText::new(&item.content);
-                let mut msg_width = measure(content.clone());
+                let msg_width = measure(content.clone());
 
                 ui.set_min_width(msg_width);
 

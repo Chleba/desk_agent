@@ -44,9 +44,8 @@ pub enum BroadcastMsg {
     OllamaModels(Vec<OllamaModel>),
 
     SelectAgent(AgentEnum),
+    SelectAgentModel(OllamaModel),
 
-    // SendUserMessage(String),
     SendUserMessage(ChatMessage),
-    // GetChatReponse(String),
     GetChatReponse(ChatMessage),
 }

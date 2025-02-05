@@ -51,14 +51,16 @@ impl Component for ChatInput {
                     let mut text_size = ui.available_size();
                     text_size.x -= SEND_BUTTON_SIZE;
 
-                    ui.add_sized(
+                    let resp = ui.add_sized(
                         text_size,
                         egui::TextEdit::multiline(&mut self.input_text)
                             .return_key(KeyboardShortcut::new(Modifiers::SHIFT, egui::Key::Enter))
                             .hint_text("Type here..")
                             .margin(Margin::symmetric(14.0, 18.0)),
                     );
-                    if ui.input(|i| i.key_pressed(egui::Key::Enter) && i.modifiers.is_none()) {
+                    if resp.has_focus()
+                        && ui.input(|i| i.key_pressed(egui::Key::Enter) && i.modifiers.is_none())
+                    {
                         self.send_user_msg(self.input_text.clone());
                         self.input_text = String::new();
                     }

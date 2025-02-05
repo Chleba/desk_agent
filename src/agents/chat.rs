@@ -6,7 +6,10 @@ use crate::{
     enums::{AgentEnum, BroadcastMsg, OllamaModel},
     utils::spawn,
 };
-use egui::{Color32, Frame, Id, Sense, UiBuilder};
+use egui::{
+    CollapsingHeader, Color32, Frame, Id, KeyboardShortcut, Margin, Modifiers, Sense, UiBuilder,
+    Vec2,
+};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
 use ollama_rs::{coordinator::Coordinator, generation::chat::ChatMessage, Ollama};
 use tokio::sync::mpsc::UnboundedSender;
@@ -20,6 +23,7 @@ pub struct ChatAgent {
     active_model: Option<OllamaModel>,
     history: Vec<ChatMessage>,
     coordinator: Option<Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>>>,
+    sys_msg: String,
 }
 
 impl ChatAgent {
@@ -31,6 +35,7 @@ impl ChatAgent {
             active_model: None,
             history: vec![],
             coordinator: None,
+            sys_msg: "".to_string(),
         }
     }
 
@@ -40,6 +45,7 @@ impl ChatAgent {
                 self.action_tx.clone(),
                 coordinator,
                 msg.clone(),
+                self.sys_msg.clone(),
             ));
         }
     }
@@ -48,9 +54,18 @@ impl ChatAgent {
         action_tx: Option<UnboundedSender<BroadcastMsg>>,
         coordinator: Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>>,
         msg: ChatMessage,
+        sys_msg: String,
     ) {
+        let mut msgs = vec![];
+        if !sys_msg.trim().is_empty() {
+            let sys_chat_msg =
+                ChatMessage::new(ollama_rs::generation::chat::MessageRole::System, sys_msg);
+            msgs.push(sys_chat_msg);
+        }
+        msgs.push(msg.clone());
+
         println!("USER: {}", msg.content.clone());
-        let resp = coordinator.lock().await.chat(vec![msg]).await.unwrap();
+        let resp = coordinator.lock().await.chat(msgs).await.unwrap();
 
         if let Some(tx) = action_tx {
             let _ = tx.send(BroadcastMsg::GetChatReponse(resp.message.clone()));
@@ -59,15 +74,92 @@ impl ChatAgent {
     }
 
     fn change_active_model(&mut self) {
-        let ollama = Ollama::default();
         if let Some(active_model) = self.active_model.clone() {
-            let model = active_model.name.clone();
-            self.coordinator = Some(Arc::new(tokio::sync::Mutex::new(Coordinator::new(
-                ollama,
-                model,
+            self.history.clear();
+            self.coordinator = Some(self.get_coordinator(
+                active_model.clone(),
                 self.history.clone(),
-            ))));
+                self.app_state.clone(),
+                self.action_tx.clone(),
+            ));
         }
+    }
+
+    fn advanced_ui(&mut self, ui: &mut egui::Ui) {
+        CollapsingHeader::new("advanced options:")
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.small("system message:");
+                ui.add_sized(
+                    [ui.available_width(), 50.0],
+                    egui::TextEdit::multiline(&mut self.sys_msg)
+                        .return_key(KeyboardShortcut::new(Modifiers::SHIFT, egui::Key::Enter))
+                        .desired_rows(2)
+                        .hint_text("Type here..")
+                        .margin(Margin::symmetric(4.0, 4.0)),
+                );
+
+                // egui::Grid::new("")
+                //     .num_columns(2)
+                //     .striped(true)
+                //     .spacing(Vec2 { x: 4.0, y: 0.0 })
+                //     .show(ui, |ui| {
+                //         ui.small("system message:");
+                //         ui.add_sized(
+                //             [100.0, 50.0],
+                //             egui::TextEdit::multiline(&mut self.sys_msg)
+                //                 .return_key(KeyboardShortcut::new(
+                //                     Modifiers::SHIFT,
+                //                     egui::Key::Enter,
+                //                 ))
+                //                 .desired_rows(2)
+                //                 .hint_text("Type here..")
+                //                 .margin(Margin::symmetric(4.0, 4.0)),
+                //         );
+                //         ui.end_row();
+                //     });
+            });
+    }
+
+    fn grid_ui(&mut self, ui: &mut egui::Ui) {
+        egui::Grid::new("")
+            .num_columns(2)
+            .spacing(egui::Vec2 { x: 4.0, y: 0.0 })
+            .show(ui, |ui| {
+                // --------
+                ui.small("agent:");
+                ui.label(self.name().to_string());
+                ui.end_row();
+
+                // --------
+                let previous_value = self.active_model.clone();
+                ui.small("model:");
+                if let Some(m) = self.active_model.clone() {
+                    egui::ComboBox::from_id_salt(Id::new(format!("{}_combo", m.name)))
+                        .width(100.0)
+                        .truncate()
+                        .selected_text(m.name)
+                        .show_ui(ui, |ui| {
+                            for om in self.models.iter() {
+                                ui.selectable_value(
+                                    &mut self.active_model,
+                                    Some(om.clone()),
+                                    &om.name,
+                                );
+                            }
+                        });
+
+                    if self.active_model != previous_value {
+                        self.change_active_model();
+                    }
+                }
+                ui.end_row();
+
+                // --------
+                ui.small("");
+                self.advanced_ui(ui);
+                ui.end_row();
+            });
     }
 }
 
@@ -89,13 +181,13 @@ impl Agent for ChatAgent {
             if let Some(app_state) = self.app_state.clone() {
                 let models = app_state.lock().unwrap().ollama_state.models.clone();
                 if !models.is_empty() {
-                    let ollama = Ollama::default();
-                    let model = models[0].name.clone();
-                    self.coordinator = Some(Arc::new(tokio::sync::Mutex::new(Coordinator::new(
-                        ollama,
+                    let model = models[0].clone();
+                    self.coordinator = Some(self.get_coordinator(
                         model,
                         self.history.clone(),
-                    ))));
+                        self.app_state.clone(),
+                        self.action_tx.clone(),
+                    ));
                 }
             }
         } else {
@@ -124,8 +216,15 @@ impl Component for ChatAgent {
             }
             BroadcastMsg::OllamaModels(models) => {
                 self.models = models.clone();
-                if !self.models.is_empty() && self.active_model.is_none() {
-                    self.active_model = Some(models[0].clone());
+                if !self.models.is_empty() {
+                    if self.active_model.is_none() {
+                        self.active_model = Some(models[0].clone());
+                    } else {
+                        let active_model = self.active_model.clone().unwrap();
+                        if !self.models.contains(&active_model) {
+                            self.active_model = Some(models[0].clone());
+                        }
+                    }
 
                     if let Some(aps) = self.app_state.clone() {
                         let agent = aps.lock().unwrap().active_agent.clone();
@@ -159,41 +258,8 @@ impl Component for ChatAgent {
                                 .w_full()
                                 .show(ui, |flex| {
                                     flex.add_ui(FlexItem::new().grow(1.0), |ui| {
-                                        egui::Grid::new("")
-                                            .num_columns(2)
-                                            .spacing(egui::Vec2 { x: 4.0, y: 0.0 })
-                                            .show(ui, |ui| {
-                                                ui.small("agent:");
-                                                ui.label(self.name().to_string());
-                                                ui.end_row();
-
-                                                let previous_value = self.active_model.clone();
-
-                                                ui.small("model:");
-                                                if let Some(m) = self.active_model.clone() {
-                                                    egui::ComboBox::from_id_salt(Id::new(format!(
-                                                        "{}_combo",
-                                                        m.name
-                                                    )))
-                                                    .width(100.0)
-                                                    .truncate()
-                                                    .selected_text(m.name)
-                                                    .show_ui(ui, |ui| {
-                                                        for om in self.models.iter() {
-                                                            ui.selectable_value(
-                                                                &mut self.active_model,
-                                                                Some(om.clone()),
-                                                                &om.name,
-                                                            );
-                                                        }
-                                                    });
-
-                                                    if self.active_model != previous_value {
-                                                        self.change_active_model();
-                                                    }
-                                                }
-                                                ui.end_row();
-                                            });
+                                        self.grid_ui(ui);
+                                        // self.advanced_ui(ui);
                                     });
 
                                     flex.add_ui(FlexItem::new().basis(25.0), |ui| {
