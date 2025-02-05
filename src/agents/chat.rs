@@ -49,6 +49,7 @@ impl ChatAgent {
         coordinator: Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>>,
         msg: ChatMessage,
     ) {
+        println!("USER: {}", msg.content.clone());
         let resp = coordinator.lock().await.chat(vec![msg]).await.unwrap();
 
         if let Some(tx) = action_tx {
@@ -110,11 +111,6 @@ impl Component for ChatAgent {
 
     fn register_app_state(&mut self, app_state: Arc<Mutex<AppState>>) {
         self.app_state = Some(app_state);
-
-        if let Some(aps) = self.app_state.clone() {
-            let agent = aps.lock().unwrap().active_agent.clone();
-            self.select_agent(agent);
-        }
     }
 
     fn register_tx(&mut self, action_tx: UnboundedSender<BroadcastMsg>) {
@@ -130,6 +126,11 @@ impl Component for ChatAgent {
                 self.models = models.clone();
                 if !self.models.is_empty() && self.active_model.is_none() {
                     self.active_model = Some(models[0].clone());
+
+                    if let Some(aps) = self.app_state.clone() {
+                        let agent = aps.lock().unwrap().active_agent.clone();
+                        self.select_agent(agent);
+                    }
                 }
             }
             BroadcastMsg::SendUserMessage(msg) => {

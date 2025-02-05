@@ -1,6 +1,12 @@
+use egui::{Context, Id, Pos2, Rect, Sense, Ui, UiBuilder, Vec2};
 use std::cmp;
 use std::future::Future;
 use std::time::Duration;
+pub mod easing {
+    pub use simple_easing::*;
+}
+
+type Easing = fn(f32) -> f32;
 
 pub fn spawn(f: impl Future<Output = ()> + Send + 'static) {
     tokio::spawn(f);
@@ -29,3 +35,15 @@ pub fn bytes_convert(num: f64) -> String {
     format!("{}{}", pretty_bytes, unit)
 }
 
+pub fn animate_repeating(ui: &mut Ui, easing: Easing, duration: Duration, offset: f32) -> f32 {
+    ui.ctx().request_repaint();
+
+    let t = ui.input(|i| i.time as f32 + offset);
+    let x = t % duration.as_secs_f32();
+    easing(x / duration.as_secs_f32())
+}
+
+pub fn animate_continuous(ui: &mut Ui, easing: Easing, duration: Duration, offset: f32) -> f32 {
+    let t = animate_repeating(ui, easing::linear, duration, offset);
+    easing::roundtrip(easing(t))
+}

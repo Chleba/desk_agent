@@ -1,5 +1,8 @@
 use super::{chat_input::ChatInput, Component};
-use crate::{components::ollama_settings::OllamaSettings, enums::BroadcastMsg};
+use crate::{
+    components::ollama_settings::OllamaSettings, enums::BroadcastMsg, utils::animate_continuous,
+};
+use std::time::Duration;
 // use egui::{Align, Color32, Layout, RichText, ScrollArea, Widget};
 use eframe::emath::Vec2;
 use egui::{
@@ -13,6 +16,7 @@ use tokio::sync::mpsc::UnboundedSender;
 pub struct Messages {
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
     messages: InfiniteScroll<ChatMessage, usize>,
+    recieving_message: bool,
 }
 
 impl Messages {
@@ -25,6 +29,7 @@ impl Messages {
             messages: infinite_scroll.start_loader(move |cursor, cb| {
                 println!("loading messages");
             }),
+            recieving_message: false,
         }
     }
 }
@@ -44,9 +49,11 @@ impl Component for Messages {
         match msg {
             BroadcastMsg::SendUserMessage(m) => {
                 self.messages.items.push(m);
+                self.recieving_message = true;
             }
             BroadcastMsg::GetChatReponse(m) => {
                 self.messages.items.push(m);
+                self.recieving_message = false;
             }
             _ => {}
         }
@@ -140,5 +147,37 @@ impl Component for Messages {
                     .add(Shape::convex_polygon(points, msg_color, Stroke::NONE))
             });
         });
+
+        if self.recieving_message {
+            Frame::none()
+                .rounding(8.0)
+                .inner_margin(8.0)
+                .outer_margin(8.0)
+                .fill(ui.style().visuals.faint_bg_color)
+                .show(ui, |ui| {
+                    ui.horizontal_top(|ui| {
+                        let mut dot = |offset| {
+                            let t = animate_continuous(
+                                ui,
+                                egui_animation::easing::sine_in_out,
+                                Duration::from_secs_f32(1.0),
+                                offset,
+                            );
+
+                            let res = ui.allocate_response(Vec2::splat(4.0), egui::Sense::hover());
+
+                            ui.painter().circle_filled(
+                                res.rect.center() + Vec2::Y * t * 4.0,
+                                res.rect.width() / 2.0,
+                                ui.style().visuals.text_color(),
+                            )
+                        };
+
+                        dot(0.0);
+                        dot(0.3);
+                        dot(8.6);
+                    });
+                });
+        }
     }
 }

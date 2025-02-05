@@ -30,6 +30,8 @@ unicode-segmentation = "1.12.0"
 ollama-rs = { version = "0.2.4", features = ["tool-implementations"] }
 egui-notify = "0.18.0"
 egui_infinite_scroll = "0.6.0"
+egui_animation = "0.7.0"
+simple-easing = "1.0.1"
 
 [profile.release]
 opt-level = 2

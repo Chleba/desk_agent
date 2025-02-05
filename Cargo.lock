@@ -1147,6 +1147,7 @@ dependencies = [
  "eframe",
  "egui",
  "egui-notify",
+ "egui_animation",
  "egui_extras",
  "egui_flex",
  "egui_form",
@@ -1159,6 +1160,7 @@ dependencies = [
  "ollama-rs",
  "reqwest",
  "serde",
+ "simple-easing",
  "tokio",
  "unicode-segmentation",
 ]
@@ -1377,6 +1379,17 @@ dependencies = [
  "web-time",
  "webbrowser",
  "winit",
+]
+
+[[package]]
+name = "egui_animation"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cd197d1bb1f0d2c61132802caf5f50dcdc5d2536fa3ec573fd7fdf0b86dbab5"
+dependencies = [
+ "egui",
+ "hello_egui_utils",
+ "simple-easing",
 ]
 
 [[package]]
@@ -4486,6 +4499,12 @@ checksum = "95890f873bec569a0362c235787f3aca6e1e887302ba4840839bcc6459c42da6"
 dependencies = [
  "quote",
 ]
+
+[[package]]
+name = "simple-easing"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "832ddd7df0d98d6fd93b973c330b7c8e0742d5cb8f1afc7dea89dba4d2531aa1"
 
 [[package]]
 name = "simplecss"
