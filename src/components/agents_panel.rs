@@ -56,18 +56,18 @@ impl Component for AgentPanel {
     }
 
     fn render(&mut self, ctx: &egui::Context) {
-        egui::SidePanel::left("agent_panel").show(ctx, |ui| {
-            // ui.label("Agents:");
+        egui::SidePanel::left("agent_panel")
+            // .default_width(100.0)
+            .show(ctx, |ui| {
+                ui.vertical(|ui| {
+                    for agent in self.agents.iter_mut() {
+                        agent.ui(ui);
+                    }
+                });
 
-            ui.vertical(|ui| {
-                for agent in self.agents.iter_mut() {
-                    agent.ui(ui);
-                }
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                    egui::warn_if_debug_build(ui);
+                });
             });
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                egui::warn_if_debug_build(ui);
-            });
-        });
     }
 }

@@ -11,7 +11,15 @@ use egui::{
     Vec2,
 };
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
-use ollama_rs::{coordinator::Coordinator, generation::chat::ChatMessage, Ollama};
+use ollama_rs::{
+    coordinator::Coordinator,
+    generation::{
+        chat::ChatMessage,
+        tools::implementations::{Calculator, DDGSearcher, Scraper},
+    },
+    Ollama,
+};
+use serde::ser::Error;
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::Agent;
@@ -22,7 +30,11 @@ pub struct ChatAgent {
     models: Vec<OllamaModel>,
     active_model: Option<OllamaModel>,
     history: Vec<ChatMessage>,
-    coordinator: Option<Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>>>,
+    coordinator: Option<
+        Arc<
+            tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, (DDGSearcher, (Scraper, Calculator))>>,
+        >,
+    >,
     sys_msg: String,
 }
 
@@ -41,21 +53,30 @@ impl ChatAgent {
 
     fn msg_to_coordinator(&mut self, msg: ChatMessage) {
         if let Some(coordinator) = self.coordinator.clone() {
-            spawn(Self::send_chat_msg(
-                self.action_tx.clone(),
-                coordinator,
-                msg.clone(),
-                self.sys_msg.clone(),
-            ));
+            let action_tx = self.action_tx.clone();
+            let sys_msg = self.sys_msg.clone();
+
+            tokio::spawn(async move {
+                let _ = Self::send_chat_msg(action_tx, coordinator, msg.clone(), sys_msg).await;
+            });
+            // spawn(Self::send_chat_msg(
+            //     self.action_tx.clone(),
+            //     coordinator,
+            //     msg.clone(),
+            //     self.sys_msg.clone(),
+            // ));
         }
     }
 
     async fn send_chat_msg(
         action_tx: Option<UnboundedSender<BroadcastMsg>>,
-        coordinator: Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>>,
+        coordinator: Arc<
+            tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, (DDGSearcher, (Scraper, Calculator))>>,
+        >,
         msg: ChatMessage,
         sys_msg: String,
-    ) {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // ) {
         let mut msgs = vec![];
         if !sys_msg.trim().is_empty() {
             let sys_chat_msg =
@@ -65,12 +86,15 @@ impl ChatAgent {
         msgs.push(msg.clone());
 
         println!("USER: {}", msg.content.clone());
-        let resp = coordinator.lock().await.chat(msgs).await.unwrap();
+        let resp = coordinator.lock().await.chat(msgs).await?;
 
-        if let Some(tx) = action_tx {
-            let _ = tx.send(BroadcastMsg::GetChatReponse(resp.message.clone()));
-        }
-        println!("{:?} CHAT RESPONSE", resp);
+        // if let Some(tx) = action_tx {
+        //     if let Ok(r) = resp {
+        //         let _ = tx.send(BroadcastMsg::GetChatReponse(r.message.clone()));
+        //     }
+        // }
+        // println!("{:?} CHAT RESPONSE", resp);
+        Ok(())
     }
 
     fn change_active_model(&mut self) {
@@ -90,34 +114,18 @@ impl ChatAgent {
             .default_open(false)
             .show(ui, |ui| {
                 ui.small("system message:");
-                ui.add_sized(
-                    [200.0, 50.0],
-                    egui::TextEdit::multiline(&mut self.sys_msg)
-                        .return_key(KeyboardShortcut::new(Modifiers::SHIFT, egui::Key::Enter))
-                        .desired_rows(2)
-                        .hint_text("Type here..")
-                        .margin(Margin::symmetric(4.0, 4.0)),
-                );
-
-                // egui::Grid::new("")
-                //     .num_columns(2)
-                //     .striped(true)
-                //     .spacing(Vec2 { x: 4.0, y: 0.0 })
-                //     .show(ui, |ui| {
-                //         ui.small("system message:");
-                //         ui.add_sized(
-                //             [100.0, 50.0],
-                //             egui::TextEdit::multiline(&mut self.sys_msg)
-                //                 .return_key(KeyboardShortcut::new(
-                //                     Modifiers::SHIFT,
-                //                     egui::Key::Enter,
-                //                 ))
-                //                 .desired_rows(2)
-                //                 .hint_text("Type here..")
-                //                 .margin(Margin::symmetric(4.0, 4.0)),
-                //         );
-                //         ui.end_row();
-                //     });
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::TextEdit::multiline(&mut self.sys_msg)
+                            .return_key(KeyboardShortcut::new(Modifiers::SHIFT, egui::Key::Enter))
+                            .desired_rows(2)
+                            .hint_text("Type here..")
+                            .margin(Margin::symmetric(4.0, 4.0)),
+                    );
+                    if ui.button("save").clicked() {
+                        println!("save system message: {}", self.sys_msg.clone());
+                    }
+                });
             });
     }
 
@@ -257,12 +265,13 @@ impl Component for ChatAgent {
                                 .align_content(FlexAlignContent::Stretch)
                                 .w_full()
                                 .show(ui, |flex| {
-                                    flex.add_ui(FlexItem::new().grow(1.0), |ui| {
+                                    flex.add_ui(FlexItem::new().grow(0.8), |ui| {
+                                        // flex.add_ui(FlexItem::new().basis(200.0), |ui| {
                                         self.grid_ui(ui);
-                                        // self.advanced_ui(ui);
                                     });
 
                                     flex.add_ui(FlexItem::new().basis(25.0), |ui| {
+                                        // flex.add_ui(FlexItem::new().grow(0.1), |ui| {
                                         if let Some(app_state) = self.app_state.clone() {
                                             let active_agent =
                                                 app_state.lock().unwrap().active_agent.clone();

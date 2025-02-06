@@ -3,7 +3,14 @@ use crate::{
     components::Component,
     enums::{AgentEnum, BroadcastMsg, OllamaModel},
 };
-use ollama_rs::{coordinator::Coordinator, generation::chat::ChatMessage, Ollama};
+use ollama_rs::{
+    coordinator::Coordinator,
+    generation::{
+        chat::ChatMessage,
+        tools::implementations::{Calculator, DDGSearcher, Scraper},
+    },
+    Ollama,
+};
 use std::{
     any::Any,
     sync::{Arc, Mutex},
@@ -37,15 +44,18 @@ pub trait Agent: Any {
         history: Vec<ChatMessage>,
         app_state: Option<Arc<Mutex<AppState>>>,
         action_tx: Option<UnboundedSender<BroadcastMsg>>,
-    ) -> Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>> {
+    ) -> Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, (DDGSearcher, (Scraper, Calculator))>>>
+    {
         let (url, port) = self.get_ollama_url(app_state);
 
         let ollama = Ollama::new(url, port);
         let model = active_model.name.clone();
-        let coordinator = Arc::new(tokio::sync::Mutex::new(Coordinator::new(
+        let tools = (DDGSearcher::new(), (Scraper {}, Calculator {}));
+        let coordinator = Arc::new(tokio::sync::Mutex::new(Coordinator::new_with_tools(
             ollama,
             model,
             history.clone(),
+            tools,
         )));
 
         if let Some(tx) = action_tx.clone() {

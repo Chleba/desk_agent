@@ -24,10 +24,11 @@ reqwest = { version = "0.12.12", features = ["json"] }
 egui_form = { version = "0.4.0", features = ["validator_garde"] }
 garde = { version = "0.20.0", features = ["derive", "email", "url"] }
 egui_flex = "0.2.0"
-tokio = { version = "1.43.0", features = ["time", "rt", "macros"] }
+tokio = { version = "1.43.0", features = ["full"] }
 futures = "0.3.31"
 unicode-segmentation = "1.12.0"
-ollama-rs = { version = "0.2.4", features = ["tool-implementations"] }
+# ollama-rs = { version = "0.2.4", features = ["rustls", "stream", "tool-implementations"] }
+ollama-rs = { git = "https://github.com/pepperoni21/ollama-rs.git", features = ["rustls", "stream", "tool-implementations"] }
 egui-notify = "0.18.0"
 egui_infinite_scroll = "0.6.0"
 egui_animation = "0.7.0"
