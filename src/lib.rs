@@ -6,6 +6,7 @@ mod app_state;
 mod components;
 mod enums;
 mod ollama_state;
+mod tools;
 mod utils;
 
 pub use app::DeskApp;

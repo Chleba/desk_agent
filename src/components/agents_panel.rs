@@ -1,6 +1,6 @@
 use super::Component;
 use crate::{
-    agents::{chat::ChatAgent, websearch::WebSearchAgent, AgentComponent},
+    agents::{chat::ChatAgent, images::ImageAgent, web_scrape::WebScrapeAgent, AgentComponent},
     enums::BroadcastMsg,
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -13,11 +13,16 @@ pub struct AgentPanel {
 impl AgentPanel {
     pub fn new() -> Self {
         let chat_agent = ChatAgent::new();
-        let websearch_agent = WebSearchAgent::new();
+        let websearch_agent = WebScrapeAgent::new();
+        let images_agent = ImageAgent::new();
 
         Self {
             action_tx: None,
-            agents: vec![Box::new(chat_agent), Box::new(websearch_agent)],
+            agents: vec![
+                Box::new(chat_agent),
+                Box::new(websearch_agent),
+                Box::new(images_agent),
+            ],
         }
     }
 }

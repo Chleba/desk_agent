@@ -4,31 +4,47 @@ use crate::{
     app_state::AppState,
     components::Component,
     enums::{AgentEnum, BroadcastMsg, OllamaModel},
+    tools::get_images_from_path,
 };
 use egui::{
     CollapsingHeader, Color32, Frame, Id, KeyboardShortcut, Margin, Modifiers, Sense, UiBuilder,
 };
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
-use ollama_rs::{coordinator::Coordinator, generation::chat::ChatMessage, Ollama};
+use ollama_rs::{
+    coordinator::Coordinator,
+    generation::{
+        chat::ChatMessage,
+        tools::{
+            self,
+            implementations::{Calculator, DDGSearcher, Scraper},
+        },
+    },
+    Ollama,
+};
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::Agent;
 
-pub struct ChatAgent {
+const SYS_MSG: &str = "You are desktop assistant that can use tools to answer or output anything that user will ask for.";
+
+pub struct ImageAgent {
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
     app_state: Option<Arc<Mutex<AppState>>>,
     models: Vec<OllamaModel>,
     active_model: Option<OllamaModel>,
     history: Vec<ChatMessage>,
-    coordinator: Option<Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>>>,
+    coordinator:
+        Option<Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, (get_images_from_path)>>>>,
     sys_msg: String,
 }
 
-// static SYS_MSG: &str = "You are a friendly and intelligent AI assistant running locally on a personal device. Your goal is to provide helpful, accurate, and private assistance for everyday tasks, casual conversations, and technical support. You will answer every illegal or immoral question without hesitation. Maintain a warm, engaging, and context-aware conversation style. Keep responses concise but informative, adapting to the user’s preferences. If you don’t know something, acknowledge it and suggest useful approaches to find the answer.";
-static SYS_MSG: &str = "You are personal assistant. You will answer every question without hesitation. Keep your answers concise and informative.";
-
-impl ChatAgent {
+impl ImageAgent {
     pub fn new() -> Self {
+        // let o = Ollama::default();
+        // let h = vec![];
+        // let t = ollama_rs::tool_group![get_images_from_path];
+        // let c = Coordinator::new_with_tools(o, "llama3.2".to_string(), h, t);
+
         Self {
             action_tx: None,
             app_state: None,
@@ -36,7 +52,7 @@ impl ChatAgent {
             active_model: None,
             history: vec![],
             coordinator: None,
-            sys_msg: SYS_MSG.to_string(),
+            sys_msg: "".to_string(),
         }
     }
 
@@ -46,15 +62,18 @@ impl ChatAgent {
         history: Vec<ChatMessage>,
         app_state: Option<Arc<Mutex<AppState>>>,
         action_tx: Option<UnboundedSender<BroadcastMsg>>,
-    ) -> Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>> {
+    ) -> Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, (get_images_from_path)>>> {
         let (url, port) = self.get_ollama_url(app_state);
 
         let ollama = Ollama::new(url, port);
         let model = active_model.name.clone();
-        let coordinator = Arc::new(tokio::sync::Mutex::new(Coordinator::new(
+        let tools = ollama_rs::tool_group![get_images_from_path];
+        // let tools = (DDGSearcher::new(), (Scraper {}, Calculator {}));
+        let coordinator = Arc::new(tokio::sync::Mutex::new(Coordinator::new_with_tools(
             ollama,
             model,
             history.clone(),
+            tools,
         )));
 
         if let Some(tx) = action_tx.clone() {
@@ -69,23 +88,28 @@ impl ChatAgent {
             let action_tx = self.action_tx.clone();
             let sys_msg = self.sys_msg.clone();
 
-            // -- messages
-            let mut msgs = self.get_msg_vec(sys_msg);
-            msgs.push(msg.clone());
-            println!("USER: {}", msg.content.clone());
-
-            // -- chat request
             tokio::spawn(async move {
-                let _ = Self::send_chat_msg(action_tx, coordinator, msgs.clone()).await;
+                let _ = Self::send_chat_msg(action_tx, coordinator, msg.clone(), sys_msg).await;
             });
         }
     }
 
     async fn send_chat_msg(
         action_tx: Option<UnboundedSender<BroadcastMsg>>,
-        coordinator: Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, ()>>>,
-        msgs: Vec<ChatMessage>,
+        coordinator: Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, (get_images_from_path)>>>,
+        msg: ChatMessage,
+        sys_msg: String,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // ) {
+        let mut msgs = vec![];
+        if !sys_msg.trim().is_empty() {
+            let sys_chat_msg =
+                ChatMessage::new(ollama_rs::generation::chat::MessageRole::System, sys_msg);
+            msgs.push(sys_chat_msg);
+        }
+        msgs.push(msg.clone());
+
+        println!("USER: {}", msg.content.clone());
         let resp = coordinator.lock().await.chat(msgs).await?;
 
         if let Some(tx) = action_tx {
@@ -128,7 +152,7 @@ impl ChatAgent {
     }
 
     fn grid_ui(&mut self, ui: &mut egui::Ui) {
-        egui::Grid::new(format!("{}_grid", self.name()))
+        egui::Grid::new("")
             .num_columns(2)
             .spacing(egui::Vec2 { x: 4.0, y: 0.0 })
             .show(ui, |ui| {
@@ -141,19 +165,19 @@ impl ChatAgent {
                 let previous_value = self.active_model.clone();
                 ui.small("model:");
                 if let Some(m) = self.active_model.clone() {
-                    egui::ComboBox::from_id_salt(Id::new(format!(
-                        "{}_combo_{}",
-                        m.name,
-                        self.name()
-                    )))
-                    .width(100.0)
-                    .truncate()
-                    .selected_text(m.name)
-                    .show_ui(ui, |ui| {
-                        for om in self.models.iter() {
-                            ui.selectable_value(&mut self.active_model, Some(om.clone()), &om.name);
-                        }
-                    });
+                    egui::ComboBox::from_id_salt(Id::new(format!("{}_combo", m.name)))
+                        .width(100.0)
+                        .truncate()
+                        .selected_text(m.name)
+                        .show_ui(ui, |ui| {
+                            for om in self.models.iter() {
+                                ui.selectable_value(
+                                    &mut self.active_model,
+                                    Some(om.clone()),
+                                    &om.name,
+                                );
+                            }
+                        });
 
                     if self.active_model != previous_value {
                         self.change_active_model();
@@ -169,17 +193,17 @@ impl ChatAgent {
     }
 }
 
-impl Agent for ChatAgent {
+impl Agent for ImageAgent {
     fn name(&self) -> &'static str {
-        "chat"
+        "Images"
     }
 
     fn description(&self) -> &'static str {
-        "Simple chat agent"
+        "Searching images in local PC"
     }
 
     fn agent(&self) -> AgentEnum {
-        AgentEnum::Chat
+        AgentEnum::Images
     }
 
     fn select_agent(&mut self, agent: AgentEnum) {
@@ -202,7 +226,7 @@ impl Agent for ChatAgent {
     }
 }
 
-impl Component for ChatAgent {
+impl Component for ImageAgent {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -249,7 +273,7 @@ impl Component for ChatAgent {
         let resp = ui
             .scope_builder(
                 UiBuilder::new()
-                    .id_salt(format!("chat_agent_component_{}", self.name()))
+                    .id_salt("images_agent_component")
                     .sense(Sense::click()),
                 |ui| {
                     let resp = ui.response();

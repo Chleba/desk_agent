@@ -27,12 +27,12 @@ egui_flex = "0.2.0"
 tokio = { version = "1.43.0", features = ["full"] }
 futures = "0.3.31"
 unicode-segmentation = "1.12.0"
-# ollama-rs = { version = "0.2.4", features = ["rustls", "stream", "tool-implementations"] }
-ollama-rs = { git = "https://github.com/pepperoni21/ollama-rs.git", features = ["rustls", "stream", "tool-implementations"] }
 egui-notify = "0.18.0"
 egui_infinite_scroll = "0.6.0"
 egui_animation = "0.7.0"
 simple-easing = "1.0.1"
+ollama-rs = { version = "0.2.5", features = ["calc", "http", "macros", "ollama-rs-macros", "tokio", "tokio-stream", "tool-implementations"] }
+schemars = { version = "0.8.21", features = ["preserve_order"] }
 
 [profile.release]
 opt-level = 2

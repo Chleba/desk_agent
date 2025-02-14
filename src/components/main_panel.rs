@@ -82,7 +82,6 @@ impl Component for MainPanel {
                         .auto_shrink([false, false])
                         .stick_to_bottom(true)
                         .show(ui, |ui| {
-                            ui.label("MASLO FRAME CENTER");
                             self.messages.ui(ui);
                         });
                 });

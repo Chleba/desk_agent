@@ -25,7 +25,8 @@ pub struct OllamaModel {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AgentEnum {
     Chat,
-    WebSearch,
+    WebScrape,
+    Images,
 }
 
 // #[derive(Clone, Debug, PartialEq)]
@@ -47,5 +48,6 @@ pub enum BroadcastMsg {
     SelectAgentModel(OllamaModel),
 
     SendUserMessage(ChatMessage),
+    GetChatSubReponse(ChatMessage),
     GetChatReponse(ChatMessage),
 }

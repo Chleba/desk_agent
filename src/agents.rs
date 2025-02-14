@@ -18,7 +18,8 @@ use std::{
 use tokio::sync::mpsc::UnboundedSender;
 
 pub mod chat;
-pub mod websearch;
+pub mod images;
+pub mod web_scrape;
 
 pub trait AgentComponent: Component + Agent {}
 impl<T: ?Sized + Component + Agent> AgentComponent for T {}
@@ -38,32 +39,42 @@ pub trait Agent: Any {
         }
     }
 
-    fn get_coordinator(
-        &mut self,
-        active_model: OllamaModel,
-        history: Vec<ChatMessage>,
-        app_state: Option<Arc<Mutex<AppState>>>,
-        action_tx: Option<UnboundedSender<BroadcastMsg>>,
-    ) -> Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, (DDGSearcher, (Scraper, Calculator))>>>
-    {
-        let (url, port) = self.get_ollama_url(app_state);
-
-        let ollama = Ollama::new(url, port);
-        let model = active_model.name.clone();
-        let tools = (DDGSearcher::new(), (Scraper {}, Calculator {}));
-        let coordinator = Arc::new(tokio::sync::Mutex::new(Coordinator::new_with_tools(
-            ollama,
-            model,
-            history.clone(),
-            tools,
-        )));
-
-        if let Some(tx) = action_tx.clone() {
-            let _ = tx.send(BroadcastMsg::SelectAgentModel(active_model));
+    fn get_msg_vec(&self, sys_msg: String) -> Vec<ChatMessage> {
+        let mut msgs = vec![];
+        if !sys_msg.trim().is_empty() {
+            let sys_chat_msg =
+                ChatMessage::new(ollama_rs::generation::chat::MessageRole::System, sys_msg);
+            msgs.push(sys_chat_msg);
         }
-
-        coordinator
+        msgs
     }
+
+    // fn get_coordinator(
+    //     &mut self,
+    //     active_model: OllamaModel,
+    //     history: Vec<ChatMessage>,
+    //     app_state: Option<Arc<Mutex<AppState>>>,
+    //     action_tx: Option<UnboundedSender<BroadcastMsg>>,
+    // ) -> Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, (DDGSearcher, (Scraper, Calculator))>>>
+    // {
+    //     let (url, port) = self.get_ollama_url(app_state);
+    //
+    //     let ollama = Ollama::new(url, port);
+    //     let model = active_model.name.clone();
+    //     let tools = (DDGSearcher::new(), (Scraper {}, Calculator {}));
+    //     let coordinator = Arc::new(tokio::sync::Mutex::new(Coordinator::new_with_tools(
+    //         ollama,
+    //         model,
+    //         history.clone(),
+    //         tools,
+    //     )));
+    //
+    //     if let Some(tx) = action_tx.clone() {
+    //         let _ = tx.send(BroadcastMsg::SelectAgentModel(active_model));
+    //     }
+    //
+    //     coordinator
+    // }
 
     fn get_ollama_url(&mut self, app_state: Option<Arc<Mutex<AppState>>>) -> (String, u16) {
         if let Some(state) = app_state.clone() {
