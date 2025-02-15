@@ -1,4 +1,6 @@
 use ollama_rs::generation::chat::ChatMessage;
+use schemars::JsonSchema;
+use serde::Deserialize;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct OllamaTagsResult {
@@ -20,6 +22,18 @@ pub struct OllamaModel {
     pub model: String,
     pub size: u64,
     pub details: OllamaModelDetail,
+}
+
+#[derive(JsonSchema, Deserialize, Debug, Clone)]
+pub struct ImageStructured {
+    path: String,
+    name: String,
+    extension: String,
+}
+
+#[derive(JsonSchema, Deserialize, Debug, Clone)]
+pub struct ImagesStructured {
+    images: Vec<ImageStructured>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -50,4 +64,7 @@ pub enum BroadcastMsg {
     SendUserMessage(ChatMessage),
     GetChatSubReponse(ChatMessage),
     GetChatReponse(ChatMessage),
+    GetStructuredOutput(String),
+
+    GetFoundImages(ImagesStructured),
 }

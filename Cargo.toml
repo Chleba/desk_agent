@@ -33,6 +33,7 @@ egui_animation = "0.7.0"
 simple-easing = "1.0.1"
 ollama-rs = { version = "0.2.5", features = ["calc", "http", "macros", "ollama-rs-macros", "tokio", "tokio-stream", "tool-implementations"] }
 schemars = { version = "0.8.21", features = ["preserve_order"] }
+serde_json = "1.0.138"
 
 [profile.release]
 opt-level = 2

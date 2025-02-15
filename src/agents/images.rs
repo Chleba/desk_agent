@@ -1,31 +1,27 @@
+use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 
+use crate::enums::ImagesStructured;
 use crate::{
     app_state::AppState,
     components::Component,
     enums::{AgentEnum, BroadcastMsg, OllamaModel},
-    tools::get_images_from_path,
+    tools::{get_images_from_path, search_images_from_path},
 };
 use egui::{
     CollapsingHeader, Color32, Frame, Id, KeyboardShortcut, Margin, Modifiers, Sense, UiBuilder,
 };
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
-use ollama_rs::{
-    coordinator::Coordinator,
-    generation::{
-        chat::ChatMessage,
-        tools::{
-            self,
-            implementations::{Calculator, DDGSearcher, Scraper},
-        },
-    },
-    Ollama,
-};
+use ollama_rs::generation::completion::request::GenerationRequest;
+use ollama_rs::generation::options::GenerationOptions;
+use ollama_rs::generation::parameters::{FormatType, JsonStructure};
+use ollama_rs::{coordinator::Coordinator, generation::chat::ChatMessage, Ollama};
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::Agent;
 
-const SYS_MSG: &str = "You are desktop assistant that can use tools to answer or output anything that user will ask for.";
+// const SYS_MSG: &str = "You are desktop assistant that can use tools to answer or output anything that user will ask for.";
+const SYS_MSG: &str = "You are helpul desktop assistant mainly used for searching and listing images. If you will not find any images from given path you will output only: I din't find any Images. If You find any images return structured output with filename, absolute path and type.";
 
 pub struct ImageAgent {
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
@@ -33,18 +29,18 @@ pub struct ImageAgent {
     models: Vec<OllamaModel>,
     active_model: Option<OllamaModel>,
     history: Vec<ChatMessage>,
-    coordinator:
-        Option<Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, (get_images_from_path)>>>>,
-    sys_msg: String,
+    coordinator: Option<
+        Arc<
+            tokio::sync::Mutex<
+                Coordinator<Vec<ChatMessage>, (get_images_from_path, search_images_from_path)>,
+            >,
+        >,
+    >,
+    sys_msg: RefCell<String>,
 }
 
 impl ImageAgent {
     pub fn new() -> Self {
-        // let o = Ollama::default();
-        // let h = vec![];
-        // let t = ollama_rs::tool_group![get_images_from_path];
-        // let c = Coordinator::new_with_tools(o, "llama3.2".to_string(), h, t);
-
         Self {
             action_tx: None,
             app_state: None,
@@ -52,7 +48,7 @@ impl ImageAgent {
             active_model: None,
             history: vec![],
             coordinator: None,
-            sys_msg: "".to_string(),
+            sys_msg: RefCell::new(SYS_MSG.to_string()),
         }
     }
 
@@ -62,13 +58,16 @@ impl ImageAgent {
         history: Vec<ChatMessage>,
         app_state: Option<Arc<Mutex<AppState>>>,
         action_tx: Option<UnboundedSender<BroadcastMsg>>,
-    ) -> Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, (get_images_from_path)>>> {
+    ) -> Arc<
+        tokio::sync::Mutex<
+            Coordinator<Vec<ChatMessage>, (get_images_from_path, search_images_from_path)>,
+        >,
+    > {
         let (url, port) = self.get_ollama_url(app_state);
 
         let ollama = Ollama::new(url, port);
         let model = active_model.name.clone();
-        let tools = ollama_rs::tool_group![get_images_from_path];
-        // let tools = (DDGSearcher::new(), (Scraper {}, Calculator {}));
+        let tools = ollama_rs::tool_group![get_images_from_path, search_images_from_path];
         let coordinator = Arc::new(tokio::sync::Mutex::new(Coordinator::new_with_tools(
             ollama,
             model,
@@ -86,7 +85,7 @@ impl ImageAgent {
     fn msg_to_coordinator(&mut self, msg: ChatMessage) {
         if let Some(coordinator) = self.coordinator.clone() {
             let action_tx = self.action_tx.clone();
-            let sys_msg = self.sys_msg.clone();
+            let sys_msg = self.sys_msg.borrow().clone();
 
             tokio::spawn(async move {
                 let _ = Self::send_chat_msg(action_tx, coordinator, msg.clone(), sys_msg).await;
@@ -96,7 +95,11 @@ impl ImageAgent {
 
     async fn send_chat_msg(
         action_tx: Option<UnboundedSender<BroadcastMsg>>,
-        coordinator: Arc<tokio::sync::Mutex<Coordinator<Vec<ChatMessage>, (get_images_from_path)>>>,
+        coordinator: Arc<
+            tokio::sync::Mutex<
+                Coordinator<Vec<ChatMessage>, (get_images_from_path, search_images_from_path)>,
+            >,
+        >,
         msg: ChatMessage,
         sys_msg: String,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -112,11 +115,49 @@ impl ImageAgent {
         println!("USER: {}", msg.content.clone());
         let resp = coordinator.lock().await.chat(msgs).await?;
 
-        if let Some(tx) = action_tx {
-            let _ = tx.send(BroadcastMsg::GetChatReponse(resp.message.clone()));
-        }
+        // if let Some(tx) = action_tx {
+        //     let _ = tx.send(BroadcastMsg::GetChatReponse(resp.message.clone()));
+        // }
         println!("{:?} CHAT RESPONSE", resp);
+
+        if let Some(tx) = action_tx {
+            let _ = tx.send(BroadcastMsg::GetStructuredOutput(
+                resp.message.content.clone(),
+            ));
+        }
+
         Ok(())
+    }
+
+    fn get_structured_output(&mut self, msg: String) {
+        let (url, port) = self.get_ollama_url(self.app_state.clone());
+        let ollama = Ollama::new(url, port);
+        let format = FormatType::StructuredJson(JsonStructure::new::<ImagesStructured>());
+        // let prompt = format!("Put these files into a json output: {}", msg);
+
+        if let Some(action_tx) = self.action_tx.clone() {
+            if let Some(model) = self.active_model.clone() {
+                tokio::spawn(async move {
+                    let res = ollama
+                        .generate(
+                            GenerationRequest::new(model.name.clone(), msg)
+                                // GenerationRequest::new(model.name.clone(), prompt)
+                                .format(format)
+                                .options(GenerationOptions::default().temperature(0.0)),
+                        )
+                        .await;
+                    if let Ok(resp) = res {
+                        println!("{:?}", &resp.response);
+                        if let Ok(json) =
+                            serde_json::from_str::<ImagesStructured>(&resp.response.clone())
+                        {
+                            let _ = action_tx.send(BroadcastMsg::GetFoundImages(json.clone()));
+                            println!("{:?}", json);
+                        }
+                    }
+                });
+            }
+        }
     }
 
     fn change_active_model(&mut self) {
@@ -129,26 +170,6 @@ impl ImageAgent {
                 self.action_tx.clone(),
             ));
         }
-    }
-
-    fn advanced_ui(&mut self, ui: &mut egui::Ui) {
-        CollapsingHeader::new("advanced options:")
-            .default_open(false)
-            .show(ui, |ui| {
-                ui.small("system message:");
-                ui.horizontal(|ui| {
-                    ui.add(
-                        egui::TextEdit::multiline(&mut self.sys_msg)
-                            .return_key(KeyboardShortcut::new(Modifiers::SHIFT, egui::Key::Enter))
-                            .desired_rows(2)
-                            .hint_text("Type here..")
-                            .margin(Margin::symmetric(4.0, 4.0)),
-                    );
-                    if ui.button("save").clicked() {
-                        println!("save system message: {}", self.sys_msg.clone());
-                    }
-                });
-            });
     }
 
     fn grid_ui(&mut self, ui: &mut egui::Ui) {
@@ -187,7 +208,11 @@ impl ImageAgent {
 
                 // --------
                 ui.small("");
-                self.advanced_ui(ui);
+                // self.advanced_ui(&mut self.sys_msg, ui);
+                // let mut sys_msg = self.sys_msg.borrow_mut();
+                let mut sys_msg = self.sys_msg.take();
+                self.advanced_ui(&mut sys_msg, ui);
+                self.sys_msg.replace(sys_msg);
                 ui.end_row();
             });
     }
@@ -264,6 +289,9 @@ impl Component for ImageAgent {
             }
             BroadcastMsg::SendUserMessage(msg) => {
                 self.msg_to_coordinator(msg);
+            }
+            BroadcastMsg::GetStructuredOutput(msg) => {
+                self.get_structured_output(msg);
             }
             _ => {}
         }

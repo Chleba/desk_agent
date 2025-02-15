@@ -3,6 +3,9 @@ use crate::{
     components::Component,
     enums::{AgentEnum, BroadcastMsg, OllamaModel},
 };
+use egui::{
+    CollapsingHeader, Color32, Frame, Id, KeyboardShortcut, Margin, Modifiers, Sense, UiBuilder,
+};
 use ollama_rs::{
     coordinator::Coordinator,
     generation::{
@@ -47,6 +50,27 @@ pub trait Agent: Any {
             msgs.push(sys_chat_msg);
         }
         msgs
+    }
+
+    fn advanced_ui(&mut self, sys_msg: &mut String, ui: &mut egui::Ui) {
+        // fn advanced_ui(&mut self, sys_msg: &mut String, ui: &mut egui::Ui) {
+        CollapsingHeader::new("advanced options:")
+            .default_open(false)
+            .show(ui, |ui| {
+                ui.small("system message:");
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::TextEdit::multiline(sys_msg)
+                            .return_key(KeyboardShortcut::new(Modifiers::SHIFT, egui::Key::Enter))
+                            .desired_rows(2)
+                            .hint_text("Type here..")
+                            .margin(Margin::symmetric(4.0, 4.0)),
+                    );
+                    if ui.button("save").clicked() {
+                        println!("save system message: {}", sys_msg.clone());
+                    }
+                });
+            });
     }
 
     // fn get_coordinator(
