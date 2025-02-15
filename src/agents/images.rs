@@ -115,16 +115,20 @@ impl ImageAgent {
         println!("USER: {}", msg.content.clone());
         let resp = coordinator.lock().await.chat(msgs).await?;
 
-        // if let Some(tx) = action_tx {
-        //     let _ = tx.send(BroadcastMsg::GetChatReponse(resp.message.clone()));
-        // }
-        println!("{:?} CHAT RESPONSE", resp);
-
         if let Some(tx) = action_tx {
+            let _ = tx.send(BroadcastMsg::GetChatReponse(resp.message.clone()));
             let _ = tx.send(BroadcastMsg::GetStructuredOutput(
                 resp.message.content.clone(),
             ));
         }
+
+        println!("{:?} CHAT RESPONSE", resp);
+
+        // if let Some(tx) = action_tx {
+        //     let _ = tx.send(BroadcastMsg::GetStructuredOutput(
+        //         resp.message.content.clone(),
+        //     ));
+        // }
 
         Ok(())
     }

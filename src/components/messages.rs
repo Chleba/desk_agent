@@ -220,7 +220,7 @@ impl Component for Messages {
 
                         ui.add(
                             egui::Image::new(format!("file://{}", path))
-                                .fit_to_exact_size(Vec2::new(100.0, 100.0))
+                                .fit_to_exact_size(Vec2::new(120.0, 120.0))
                                 .bg_fill(Color32::from_rgb(33, 33, 33))
                                 // .max_width(440.0)
                                 .rounding(6.0),
