@@ -2,7 +2,9 @@ use crate::{
     app_state::{self, AppState},
     components::Component,
     enums::{AgentEnum, BroadcastMsg, OllamaModel},
+    utils::animate_continuous,
 };
+use eframe::emath::Vec2;
 use egui::{
     CollapsingHeader, Color32, Frame, Id, KeyboardShortcut, Margin, Modifiers, Sense, UiBuilder,
 };
@@ -14,6 +16,7 @@ use ollama_rs::{
     },
     Ollama,
 };
+use std::time::Duration;
 use std::{
     any::Any,
     sync::{Arc, Mutex},

@@ -26,14 +26,20 @@ pub struct OllamaModel {
 
 #[derive(JsonSchema, Deserialize, Debug, Clone)]
 pub struct ImageStructured {
-    path: String,
+    pub path: String,
     name: String,
     extension: String,
 }
 
 #[derive(JsonSchema, Deserialize, Debug, Clone)]
 pub struct ImagesStructured {
-    images: Vec<ImageStructured>,
+    pub images: Vec<ImageStructured>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DeskMessage {
+    pub chat_message: Option<ChatMessage>,
+    pub images: Option<ImagesStructured>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
