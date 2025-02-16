@@ -36,7 +36,7 @@ pub async fn get_images_from_path(
 
 /// Search image files from given path
 ///
-/// * path - Path to search image files
+/// * path - Path to search image file
 #[ollama_rs::function]
 pub async fn search_images_from_path(
     path: String,
@@ -70,22 +70,22 @@ pub async fn search_images_from_path(
 
     recurse_search(Path::new(&path), &img_ext, &mut imgs);
 
-    // if let Ok(entries) = fs::read_dir(path) {
-    //     for entry in entries.flatten() {
-    //         let ePath = entry.path();
-    //         if let Some(e) = ePath.extension() {
-    //             if let Some(ext) = e.to_str() {
-    //                 if img_ext.contains(&ext) {
-    //                     if let Some(p_str) = ePath.to_str() {
-    //                         imgs.push(p_str.to_string());
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
     println!("{:?} - images", imgs);
 
     Ok(imgs.join("\n"))
+}
+
+/// Return 'true' if file path contains a specific substring otherwise 'false'
+///
+/// * path - Path to image file
+/// * substring - Subsctring to be checked
+#[ollama_rs::function]
+pub async fn path_contains_substring(
+    path: String,
+    substring: String,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    if path.contains(&substring) {
+        return Ok("true".to_string());
+    }
+    Ok("false".to_string())
 }

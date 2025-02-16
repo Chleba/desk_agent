@@ -1,16 +1,13 @@
 use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 
-use crate::enums::ImagesStructured;
 use crate::{
     app_state::AppState,
     components::Component,
-    enums::{AgentEnum, BroadcastMsg, OllamaModel},
-    tools::{get_images_from_path, search_images_from_path},
+    enums::{AgentEnum, BroadcastMsg, ImagesStructured, OllamaModel},
+    tools::{get_images_from_path, path_contains_substring, search_images_from_path},
 };
-use egui::{
-    CollapsingHeader, Color32, Frame, Id, KeyboardShortcut, Margin, Modifiers, Sense, UiBuilder,
-};
+use egui::{Color32, Frame, Id, Sense, UiBuilder};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
 use ollama_rs::generation::completion::request::GenerationRequest;
 use ollama_rs::generation::options::GenerationOptions;
@@ -21,7 +18,12 @@ use tokio::sync::mpsc::UnboundedSender;
 use super::Agent;
 
 // const SYS_MSG: &str = "You are desktop assistant that can use tools to answer or output anything that user will ask for.";
-const SYS_MSG: &str = "You are helpul desktop assistant mainly used for searching and listing images. If you will not find any images from given path you will output only: I din't find any Images. If You find any images return structured output with filename, absolute path and type.";
+// const SYS_MSG: &str = "You are helpul desktop assistant mainly used for searching and listing images. If you will not find any images from given path you will output only: I din't find any Images. If You find any images return structured output with filename, absolute path.";
+const SYS_MSG: &str = r##"  
+You are helpul desktop assistant mainly used for searching and listing images.
+If you will not find any images from given path you will output only: I din't find any Images.
+If You find any images return structured output in markdown language with filename and absolute path.
+Always translate Your response tp language that user is using in his prompt."##;
 
 pub struct ImageAgent {
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
@@ -32,11 +34,19 @@ pub struct ImageAgent {
     coordinator: Option<
         Arc<
             tokio::sync::Mutex<
-                Coordinator<Vec<ChatMessage>, (get_images_from_path, search_images_from_path)>,
+                Coordinator<
+                    Vec<ChatMessage>,
+                    (
+                        get_images_from_path,
+                        search_images_from_path,
+                        // path_contains_substring,
+                    ),
+                >,
             >,
         >,
     >,
     sys_msg: RefCell<String>,
+    last_found_images: Vec<String>,
 }
 
 impl ImageAgent {
@@ -49,6 +59,7 @@ impl ImageAgent {
             history: vec![],
             coordinator: None,
             sys_msg: RefCell::new(SYS_MSG.to_string()),
+            last_found_images: vec![],
         }
     }
 
@@ -60,14 +71,25 @@ impl ImageAgent {
         action_tx: Option<UnboundedSender<BroadcastMsg>>,
     ) -> Arc<
         tokio::sync::Mutex<
-            Coordinator<Vec<ChatMessage>, (get_images_from_path, search_images_from_path)>,
+            Coordinator<
+                Vec<ChatMessage>,
+                (
+                    get_images_from_path,
+                    search_images_from_path,
+                    // path_contains_substring,
+                ),
+            >,
         >,
     > {
         let (url, port) = self.get_ollama_url(app_state);
 
         let ollama = Ollama::new(url, port);
         let model = active_model.name.clone();
-        let tools = ollama_rs::tool_group![get_images_from_path, search_images_from_path];
+        let tools = ollama_rs::tool_group![
+            get_images_from_path,
+            search_images_from_path,
+            // path_contains_substring
+        ];
         let coordinator = Arc::new(tokio::sync::Mutex::new(Coordinator::new_with_tools(
             ollama,
             model,
@@ -116,7 +138,7 @@ impl ImageAgent {
         let resp = coordinator.lock().await.chat(msgs).await?;
 
         if let Some(tx) = action_tx {
-            let _ = tx.send(BroadcastMsg::GetChatReponse(resp.message.clone()));
+            let _ = tx.send(BroadcastMsg::GetChatSubReponse(resp.message.clone()));
             let _ = tx.send(BroadcastMsg::GetStructuredOutput(
                 resp.message.content.clone(),
             ));
@@ -124,20 +146,20 @@ impl ImageAgent {
 
         println!("{:?} CHAT RESPONSE", resp);
 
-        // if let Some(tx) = action_tx {
-        //     let _ = tx.send(BroadcastMsg::GetStructuredOutput(
-        //         resp.message.content.clone(),
-        //     ));
-        // }
-
         Ok(())
+    }
+
+    fn decide_search_msg(&mut self, msg: ChatMessage) {
+        let sys_msg = r##"
+            You are not AI Assistant. 
+            Your only task is to decide if user the last prompt is asking for images with specific object or description on it or not. 
+            Only generate 'true' or 'false' as a response."##;
     }
 
     fn get_structured_output(&mut self, msg: String) {
         let (url, port) = self.get_ollama_url(self.app_state.clone());
         let ollama = Ollama::new(url, port);
         let format = FormatType::StructuredJson(JsonStructure::new::<ImagesStructured>());
-        // let prompt = format!("Put these files into a json output: {}", msg);
 
         if let Some(action_tx) = self.action_tx.clone() {
             if let Some(model) = self.active_model.clone() {
@@ -145,7 +167,6 @@ impl ImageAgent {
                     let res = ollama
                         .generate(
                             GenerationRequest::new(model.name.clone(), msg)
-                                // GenerationRequest::new(model.name.clone(), prompt)
                                 .format(format)
                                 .options(GenerationOptions::default().temperature(0.0)),
                         )
@@ -292,6 +313,7 @@ impl Component for ImageAgent {
                 }
             }
             BroadcastMsg::SendUserMessage(msg) => {
+                // self.decide_search_msg(msg);
                 self.msg_to_coordinator(msg);
             }
             BroadcastMsg::GetStructuredOutput(msg) => {

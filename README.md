@@ -1,6 +1,9 @@
 # Desk Agent
 Local AI Desktop Assistant App
 
+***
+<img src="./desk_agent.png" width="550px" />
+
 ## Descrition
 Desk Agent is offline, local AI Desktop Assistant application that is using Ollama server and have implemented few AI agents with tool to help user with everyday tasks. Desk Agent is crossplatform working on Windows, MacOS and Linux.
 

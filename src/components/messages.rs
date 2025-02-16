@@ -180,6 +180,12 @@ impl Component for Messages {
                 });
                 self.recieving_message = false;
             }
+            BroadcastMsg::GetChatSubReponse(m) => {
+                self.messages.items.push(DeskMessage {
+                    chat_message: Some(m),
+                    images: None,
+                });
+            }
             BroadcastMsg::SelectAgent(agent) => {
                 if let Some(a) = self.last_active_agent.clone() {
                     if a != agent {
@@ -216,18 +222,13 @@ impl Component for Messages {
             if let Some(images_struct) = item_message.clone().images {
                 ui.horizontal_wrapped(|ui| {
                     for image in images_struct.images {
-                        let path = image.path;
-
                         ui.add(
-                            egui::Image::new(format!("file://{}", path))
+                            egui::Image::new(format!("file://{}", image.path))
                                 .fit_to_exact_size(Vec2::new(120.0, 120.0))
                                 .bg_fill(Color32::from_rgb(33, 33, 33))
                                 // .max_width(440.0)
                                 .rounding(6.0),
                         );
-
-                        // ui.image(egui::include_image!("{}", path));
-                        // ui.image(format!("file://{}", path));
                     }
                 });
             }
