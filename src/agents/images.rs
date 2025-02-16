@@ -355,15 +355,6 @@ impl ImageAgent {
             let mut img_struct = ImagesStructured { images: ims };
             let _ = action_tx.send(BroadcastMsg::GetFoundImages(img_struct));
         }
-
-        // if let Ok(json) = serde_json::from_str::<ImagesStructured>(&resp.response.clone()) {
-        //     let _ = action_tx.send(BroadcastMsg::GetFoundImages(json.clone()));
-        //     println!("{:?}", json);
-        // }
-
-        // if let Some(action_tx) = self.action_tx.clone() {
-        //     let _ = action_tx.send(BroadcastMsg::FinishedImageSearch);
-        // }
     }
 
     fn change_active_model(&mut self) {
@@ -414,8 +405,6 @@ impl ImageAgent {
 
                 // --------
                 ui.small("");
-                // self.advanced_ui(&mut self.sys_msg, ui);
-                // let mut sys_msg = self.sys_msg.borrow_mut();
                 let mut sys_msg = self.sys_msg.take();
                 self.advanced_ui(&mut sys_msg, ui);
                 self.sys_msg.replace(sys_msg);
@@ -501,12 +490,19 @@ impl Component for ImageAgent {
                 self.get_structured_output(msg);
             }
             BroadcastMsg::GetFoundImages(json) => {
-                self.last_found_images = Some(json);
+                if let Some(ref mut f_images) = self.last_found_images.clone() {
+                    for img in json.clone().images {
+                        if !f_images.images.iter().any(|i| i == &img) {
+                            f_images.images.push(img);
+                        }
+                    }
+                } else {
+                    self.last_found_images = Some(json);
+                }
             }
             BroadcastMsg::GetDescriptionImageSearch(is_by_desc, msg) => {
                 if is_by_desc == "true" && self.last_found_images.is_some() {
                     self.search_images_by_vision(msg);
-                    // self.images_to_coordinator(msg);
                 } else {
                     self.msg_to_coordinator(msg);
                 }

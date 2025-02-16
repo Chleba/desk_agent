@@ -31,7 +31,7 @@ pub struct ImageBase64Search {
     pub path: String,
 }
 
-#[derive(JsonSchema, Deserialize, Debug, Clone)]
+#[derive(JsonSchema, PartialEq, Deserialize, Debug, Clone)]
 pub struct ImageStructured {
     pub path: String,
     pub name: String,

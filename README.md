@@ -2,7 +2,8 @@
 Local AI Desktop Assistant App
 
 ***
-<img src="./desk_agent.png" width="550px" />
+<img src="./desk_agent.png" width="150px" />
+<img src="./image_vision_agent.png" width="150px" />
 
 ## Descrition
 Desk Agent is offline, local AI Desktop Assistant application that is using Ollama server and have implemented few AI agents with tool to help user with everyday tasks. Desk Agent is crossplatform working on Windows, MacOS and Linux.
@@ -34,10 +35,10 @@ Desk Agent is offline, local AI Desktop Assistant application that is using Olla
 - [x] chat agent 
 - [x] web scrape agent
 - [x] image search agent
-- [ ] image vision search imeplementation (very soon)
+- [x] image vision search imeplementation
 - [ ] better recursive file search
 - [ ] web search agent
 - [ ] pdf documents agent
-- [ ] Ollama pulling models implementation
+- [ ] Ollama models pulling implementation
 - [ ] layout design fixes & changes (to be more cleaner and simpler)
 - [ ] much more ... sky(net) is a limit 
