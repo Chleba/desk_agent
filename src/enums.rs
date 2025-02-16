@@ -1,4 +1,4 @@
-use ollama_rs::generation::chat::ChatMessage;
+use ollama_rs::generation::{chat::ChatMessage, images::Image};
 use schemars::JsonSchema;
 use serde::Deserialize;
 
@@ -12,6 +12,7 @@ pub struct OllamaModelDetail {
     pub parent_model: String,
     pub format: String,
     pub family: String,
+    pub families: Vec<String>,
     pub parameter_size: String,
     pub quantization_level: String,
 }
@@ -24,11 +25,17 @@ pub struct OllamaModel {
     pub details: OllamaModelDetail,
 }
 
+#[derive(Debug, Clone)]
+pub struct ImageBase64Search {
+    pub base64: Image,
+    pub path: String,
+}
+
 #[derive(JsonSchema, Deserialize, Debug, Clone)]
 pub struct ImageStructured {
     pub path: String,
-    name: String,
-    extension: String,
+    pub name: String,
+    pub extension: String,
 }
 
 #[derive(JsonSchema, Deserialize, Debug, Clone)]
@@ -73,4 +80,9 @@ pub enum BroadcastMsg {
     GetStructuredOutput(String),
 
     GetFoundImages(ImagesStructured),
+    GetDescriptionImageSearch(String, ChatMessage),
+
+    GetRephraseImageSearchPrompt(String),
+    GetVisionSeachResult(String, String, ImageBase64Search),
+    FinishedImageSearch,
 }

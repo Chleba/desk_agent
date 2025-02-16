@@ -1,7 +1,14 @@
+use base64::Engine;
 use egui::{Context, Id, Pos2, Rect, Sense, Ui, UiBuilder, Vec2};
+use ollama_rs::generation::images::Image;
 use std::cmp;
+use std::fs;
 use std::future::Future;
+use std::path::Path;
 use std::time::Duration;
+
+use crate::enums::ImageBase64Search;
+use crate::enums::ImageStructured;
 pub mod easing {
     pub use simple_easing::*;
 }
@@ -46,4 +53,20 @@ pub fn animate_repeating(ui: &mut Ui, easing: Easing, duration: Duration, offset
 pub fn animate_continuous(ui: &mut Ui, easing: Easing, duration: Duration, offset: f32) -> f32 {
     let t = animate_repeating(ui, easing::linear, duration, offset);
     easing::roundtrip(easing(t))
+}
+
+pub fn img_paths_to_base64(images: Vec<ImageStructured>) -> Vec<ImageBase64Search> {
+    let mut base64_imgs = vec![];
+    for img in images {
+        let path = Path::new(&img.path);
+        let bytes = fs::read(path);
+        if let Ok(img_bytes) = bytes {
+            let b64_img = base64::engine::general_purpose::STANDARD.encode(&img_bytes);
+            base64_imgs.push(ImageBase64Search {
+                base64: Image::from_base64(b64_img),
+                path: img.path.to_string(),
+            });
+        }
+    }
+    base64_imgs
 }

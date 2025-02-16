@@ -3,6 +3,7 @@ use crate::{
     utils::spawn,
 };
 use futures::TryFutureExt;
+use garde::external::compact_str::CompactStringExt;
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(serde::Deserialize, Default, serde::Serialize, Debug, Clone)]
@@ -37,6 +38,16 @@ impl OllamaState {
     pub fn init(&mut self) {
         self.send_check_ollama_url();
         self.send_get_tags();
+    }
+
+    pub fn get_vision_models(&self) -> Vec<OllamaModel> {
+        let mut models = vec![];
+        for m in self.models.clone() {
+            if m.details.families.contains(&"clip".to_string()) {
+                models.push(m);
+            }
+        }
+        models
     }
 
     pub fn update(&mut self, msg: BroadcastMsg) {
@@ -113,6 +124,7 @@ impl OllamaState {
         match tags {
             Ok(t) => {
                 if let Some(tx) = action_tx {
+                    // println!("{:?} - ollama models tags", t.models);
                     let _ = tx.send(BroadcastMsg::SetOllamaModels(t.models));
                 }
             }

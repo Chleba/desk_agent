@@ -35,6 +35,7 @@ Desk Agent is offline, local AI Desktop Assistant application that is using Olla
 - [x] web scrape agent
 - [x] image search agent
 - [ ] image vision search imeplementation (very soon)
+- [ ] better recursive file search
 - [ ] web search agent
 - [ ] pdf documents agent
 - [ ] Ollama pulling models implementation

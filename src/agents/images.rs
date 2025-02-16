@@ -1,15 +1,23 @@
 use std::cell::RefCell;
+use std::fs;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
+use crate::enums::{ImageBase64Search, ImageStructured};
+use crate::utils::img_paths_to_base64;
+use crate::{app_state, ollama_state};
 use crate::{
     app_state::AppState,
     components::Component,
     enums::{AgentEnum, BroadcastMsg, ImagesStructured, OllamaModel},
     tools::{get_images_from_path, path_contains_substring, search_images_from_path},
 };
+use base64::Engine;
 use egui::{Color32, Frame, Id, Sense, UiBuilder};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
+use garde::rules::length::bytes;
 use ollama_rs::generation::completion::request::GenerationRequest;
+use ollama_rs::generation::images::Image;
 use ollama_rs::generation::options::GenerationOptions;
 use ollama_rs::generation::parameters::{FormatType, JsonStructure};
 use ollama_rs::{coordinator::Coordinator, generation::chat::ChatMessage, Ollama};
@@ -20,10 +28,9 @@ use super::Agent;
 // const SYS_MSG: &str = "You are desktop assistant that can use tools to answer or output anything that user will ask for.";
 // const SYS_MSG: &str = "You are helpul desktop assistant mainly used for searching and listing images. If you will not find any images from given path you will output only: I din't find any Images. If You find any images return structured output with filename, absolute path.";
 const SYS_MSG: &str = r##"  
-You are helpul desktop assistant mainly used for searching and listing images.
+You are helpul desktop assistant mainly used for searching or listing images.
 If you will not find any images from given path you will output only: I din't find any Images.
-If You find any images return structured output in markdown language with filename and absolute path.
-Always translate Your response tp language that user is using in his prompt."##;
+If you'll get any images from toll call response only with list of those images with format '- name of image file: absolute path'"##;
 
 pub struct ImageAgent {
     action_tx: Option<UnboundedSender<BroadcastMsg>>,
@@ -46,7 +53,9 @@ pub struct ImageAgent {
         >,
     >,
     sys_msg: RefCell<String>,
-    last_found_images: Vec<String>,
+    last_found_images: Option<ImagesStructured>,
+    images_to_search: Vec<ImageBase64Search>,
+    images_found: Vec<ImageBase64Search>,
 }
 
 impl ImageAgent {
@@ -59,7 +68,9 @@ impl ImageAgent {
             history: vec![],
             coordinator: None,
             sys_msg: RefCell::new(SYS_MSG.to_string()),
-            last_found_images: vec![],
+            last_found_images: None,
+            images_to_search: vec![],
+            images_found: vec![],
         }
     }
 
@@ -115,6 +126,69 @@ impl ImageAgent {
         }
     }
 
+    fn msg_to_vision(&mut self, model_name: String, prompt: String, img: ImageBase64Search) {
+        let sys_msg = r##"You are an AI vision model. 
+        You will receive an image and a question asking whether a specific object or feature is present in the image. 
+        Respond only with 'true' if it is present or 'false' if it is not. 
+        Do not provide any additional explanations or details."##;
+        let (url, port) = self.get_ollama_url(self.app_state.clone());
+        let ollama = Ollama::new(url, port);
+        if let Some(action_tx) = self.action_tx.clone() {
+            tokio::spawn(async move {
+                let res = ollama
+                    .generate(
+                        GenerationRequest::new(
+                            model_name,
+                            format!(
+                                "{}. Answer alway only with 'true' or 'false'.",
+                                prompt.clone()
+                            ),
+                        )
+                        .add_image(img.clone().base64)
+                        .system(sys_msg)
+                        .options(GenerationOptions::default().temperature(0.0)),
+                    )
+                    .await;
+                if let Ok(resp) = res {
+                    println!("{:?} desc vision search", &resp.response);
+
+                    let _ = action_tx.send(BroadcastMsg::GetVisionSeachResult(
+                        prompt,
+                        resp.response.clone(),
+                        img,
+                    ));
+                }
+            });
+        }
+    }
+
+    fn get_vision_model(&mut self) -> Option<String> {
+        if let Some(app_state) = self.app_state.clone() {
+            let a_state = app_state.lock().unwrap();
+            let v_models = a_state.ollama_state.get_vision_models();
+            if !v_models.is_empty() {
+                let model_name = v_models[0].name.clone();
+                println!("SELECTED FIRST VISION MODEL: {}", model_name.clone());
+                return Some(model_name);
+            }
+        }
+        None
+    }
+
+    fn image_to_coordinator(&mut self, prompt: String, img: ImageBase64Search) {
+        let msg = ChatMessage::new(
+            ollama_rs::generation::chat::MessageRole::User,
+            prompt.clone(),
+        );
+        // msg.add_image(img.base64);
+
+        if let Some(vision_model) = self.get_vision_model() {
+            self.msg_to_vision(vision_model, prompt, img);
+        } else {
+            self.msg_to_coordinator(msg.clone());
+        }
+    }
+
     async fn send_chat_msg(
         action_tx: Option<UnboundedSender<BroadcastMsg>>,
         coordinator: Arc<
@@ -150,10 +224,33 @@ impl ImageAgent {
     }
 
     fn decide_search_msg(&mut self, msg: ChatMessage) {
-        let sys_msg = r##"
-            You are not AI Assistant. 
-            Your only task is to decide if user the last prompt is asking for images with specific object or description on it or not. 
-            Only generate 'true' or 'false' as a response."##;
+        let sys_msg = r##"You are not AI Assistant.You are an AI agent that determines whether 
+        the user is requesting an image containing a specific object, person, or scenery. 
+        Respond with 'true' if the user's request includes a description of what should be present in the image. 
+        Otherwise, respond with 'false'. Only return 'true' or 'false' without any explanation."##;
+
+        let (url, port) = self.get_ollama_url(self.app_state.clone());
+        let ollama = Ollama::new(url, port);
+        if let Some(action_tx) = self.action_tx.clone() {
+            if let Some(model) = self.active_model.clone() {
+                tokio::spawn(async move {
+                    let res = ollama
+                        .generate(
+                            GenerationRequest::new(model.name.clone(), msg.clone().content)
+                                .system(sys_msg)
+                                .options(GenerationOptions::default().temperature(0.0)),
+                        )
+                        .await;
+                    if let Ok(resp) = res {
+                        let _ = action_tx.send(BroadcastMsg::GetDescriptionImageSearch(
+                            resp.response.clone(),
+                            msg,
+                        ));
+                        println!("{:?} desc search", &resp.response);
+                    }
+                });
+            }
+        }
     }
 
     fn get_structured_output(&mut self, msg: String) {
@@ -183,6 +280,90 @@ impl ImageAgent {
                 });
             }
         }
+    }
+
+    fn search_images_by_vision(&mut self, msg: ChatMessage) {
+        // -- get "is {something} on this picutre ?" prompt
+        let sys_msg = r##"
+            You are not AI Assistant. 
+            Your only task is to rephrase user prompt with description of what to find on pictures 
+            into a question prompt in format 'Is {description} on this picture?'"##;
+
+        let (url, port) = self.get_ollama_url(self.app_state.clone());
+        let ollama = Ollama::new(url, port);
+        if let Some(action_tx) = self.action_tx.clone() {
+            if let Some(model) = self.active_model.clone() {
+                tokio::spawn(async move {
+                    let res = ollama
+                        .generate(
+                            GenerationRequest::new(model.name.clone(), msg.clone().content)
+                                .system(sys_msg)
+                                .options(GenerationOptions::default().temperature(0.0)),
+                        )
+                        .await;
+                    if let Ok(resp) = res {
+                        let _ = action_tx.send(BroadcastMsg::GetRephraseImageSearchPrompt(
+                            resp.response.clone(),
+                        ));
+                        println!("{:?} rephrase prompt", &resp.response);
+                    }
+                });
+            }
+        }
+    }
+
+    fn start_vision_search(&mut self, prompt: String) {
+        if let Some(images) = self.last_found_images.clone() {
+            let base64_images = img_paths_to_base64(images.images);
+            self.images_to_search = base64_images;
+            self.images_found.clear();
+            self.next_vision_search(prompt);
+        }
+    }
+
+    fn next_vision_search(&mut self, prompt: String) {
+        if let Some(img) = self.images_to_search.pop() {
+            self.image_to_coordinator(prompt, img);
+        } else {
+            self.finished_image_search();
+        }
+    }
+
+    fn validate_checked_image(&mut self, answer: String, img: ImageBase64Search) {
+        if answer.contains("Yes")
+            || answer.contains("yes")
+            || answer.contains("True")
+            || answer.contains("true")
+        {
+            self.images_found.push(img);
+        }
+    }
+
+    fn finished_image_search(&mut self) {
+        if let Some(action_tx) = self.action_tx.clone() {
+            // let mut img_s = vec![];
+            let ims = self
+                .images_found
+                .iter()
+                .map(|i| ImageStructured {
+                    path: i.path.clone(),
+                    name: "test".to_string(),
+                    extension: "png".to_string(),
+                })
+                .collect();
+
+            let mut img_struct = ImagesStructured { images: ims };
+            let _ = action_tx.send(BroadcastMsg::GetFoundImages(img_struct));
+        }
+
+        // if let Ok(json) = serde_json::from_str::<ImagesStructured>(&resp.response.clone()) {
+        //     let _ = action_tx.send(BroadcastMsg::GetFoundImages(json.clone()));
+        //     println!("{:?}", json);
+        // }
+
+        // if let Some(action_tx) = self.action_tx.clone() {
+        //     let _ = action_tx.send(BroadcastMsg::FinishedImageSearch);
+        // }
     }
 
     fn change_active_model(&mut self) {
@@ -313,11 +494,30 @@ impl Component for ImageAgent {
                 }
             }
             BroadcastMsg::SendUserMessage(msg) => {
-                // self.decide_search_msg(msg);
-                self.msg_to_coordinator(msg);
+                self.decide_search_msg(msg);
+                // self.msg_to_coordinator(msg);
             }
             BroadcastMsg::GetStructuredOutput(msg) => {
                 self.get_structured_output(msg);
+            }
+            BroadcastMsg::GetFoundImages(json) => {
+                self.last_found_images = Some(json);
+            }
+            BroadcastMsg::GetDescriptionImageSearch(is_by_desc, msg) => {
+                if is_by_desc == "true" && self.last_found_images.is_some() {
+                    self.search_images_by_vision(msg);
+                    // self.images_to_coordinator(msg);
+                } else {
+                    self.msg_to_coordinator(msg);
+                }
+            }
+            BroadcastMsg::GetRephraseImageSearchPrompt(prompt) => {
+                self.start_vision_search(prompt);
+            }
+            BroadcastMsg::GetVisionSeachResult(prompt, answer, img) => {
+                self.validate_checked_image(answer, img);
+                // println!("{}, {}", answer, img.path);
+                self.next_vision_search(prompt);
             }
             _ => {}
         }
