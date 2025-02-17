@@ -11,6 +11,7 @@ Desk Agent is offline, local AI Desktop Assistant application that is using Olla
 - chat: simple chat agent
 - web text scraper: scaping text from URL and sumarize in output
 - images: searching images in local machine given the path or by description (vision model pulled into ollama required)
+    - Best results with models: `qwen2.5 with tools` (for decision agent) & `llava-llama3 vision model`
 
 > [!NOTE]
 > This project is in heavy development and more bugfixes, code cleaning/refactoring and more agents and tools implementation is needed
