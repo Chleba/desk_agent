@@ -4,7 +4,7 @@ use crate::{
     utils::animate_continuous,
 };
 use eframe::emath::Vec2;
-use egui::{Align, Color32, Frame, Layout, Rect, RichText, Rounding, Shape, Stroke};
+use egui::{Align, Color32, Frame, Layout, Rect, RichText, Rounding, Sense, Shape, Stroke};
 use egui_infinite_scroll::InfiniteScroll;
 use ollama_rs::generation::chat::{ChatMessage, MessageRole};
 use std::time::Duration;
@@ -222,13 +222,18 @@ impl Component for Messages {
             if let Some(images_struct) = item_message.clone().images {
                 ui.horizontal_wrapped(|ui| {
                     for image in images_struct.images {
-                        ui.add(
+                        let resp = ui.add(
                             egui::Image::new(format!("file://{}", image.path))
                                 .fit_to_exact_size(Vec2::new(120.0, 120.0))
                                 .bg_fill(Color32::from_rgb(33, 33, 33))
                                 // .max_width(440.0)
+                                .sense(Sense::click())
                                 .rounding(6.0),
                         );
+                        if resp.clicked() {
+                            println!("open files {}", image.path);
+                            let _ = open::that(image.path);
+                        }
                     }
                 });
             }
