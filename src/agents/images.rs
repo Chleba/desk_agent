@@ -1,23 +1,17 @@
 use std::cell::RefCell;
-use std::fs;
-use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use crate::enums::{ImageBase64Search, ImageStructured};
 use crate::utils::img_paths_to_base64;
-use crate::{app_state, ollama_state};
 use crate::{
     app_state::AppState,
     components::Component,
     enums::{AgentEnum, BroadcastMsg, ImagesStructured, OllamaModel},
     tools::{get_images_from_path, path_contains_substring, search_images_from_path},
 };
-use base64::Engine;
 use egui::{Color32, Frame, Id, Sense, UiBuilder};
 use egui_flex::{Flex, FlexAlignContent, FlexItem};
-use garde::rules::length::bytes;
 use ollama_rs::generation::completion::request::GenerationRequest;
-use ollama_rs::generation::images::Image;
 use ollama_rs::generation::options::GenerationOptions;
 use ollama_rs::generation::parameters::{FormatType, JsonStructure};
 use ollama_rs::{coordinator::Coordinator, generation::chat::ChatMessage, Ollama};
@@ -25,8 +19,6 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use super::Agent;
 
-// const SYS_MSG: &str = "You are desktop assistant that can use tools to answer or output anything that user will ask for.";
-// const SYS_MSG: &str = "You are helpul desktop assistant mainly used for searching and listing images. If you will not find any images from given path you will output only: I din't find any Images. If You find any images return structured output with filename, absolute path.";
 const SYS_MSG: &str = r##"  
 You are helpul desktop assistant mainly used for searching or listing images.
 If you will not find any images from given path you will output only: I din't find any Images.
@@ -53,7 +45,7 @@ pub struct ImageAgent {
         >,
     >,
     sys_msg: RefCell<String>,
-    last_found_images: Option<ImagesStructured>,
+    all_found_images: Option<ImagesStructured>,
     images_to_search: Vec<ImageBase64Search>,
     images_found: Vec<ImageBase64Search>,
 }
@@ -68,7 +60,7 @@ impl ImageAgent {
             history: vec![],
             coordinator: None,
             sys_msg: RefCell::new(SYS_MSG.to_string()),
-            last_found_images: None,
+            all_found_images: None,
             images_to_search: vec![],
             images_found: vec![],
         }
@@ -313,7 +305,7 @@ impl ImageAgent {
     }
 
     fn start_vision_search(&mut self, prompt: String) {
-        if let Some(images) = self.last_found_images.clone() {
+        if let Some(images) = self.all_found_images.clone() {
             let base64_images = img_paths_to_base64(images.images);
             self.images_to_search = base64_images;
             self.images_found.clear();
@@ -490,18 +482,18 @@ impl Component for ImageAgent {
                 self.get_structured_output(msg);
             }
             BroadcastMsg::GetFoundImages(json) => {
-                if let Some(ref mut f_images) = self.last_found_images.clone() {
+                if let Some(ref mut f_images) = self.all_found_images.clone() {
                     for img in json.clone().images {
                         if !f_images.images.iter().any(|i| i == &img) {
                             f_images.images.push(img);
                         }
                     }
                 } else {
-                    self.last_found_images = Some(json);
+                    self.all_found_images = Some(json);
                 }
             }
             BroadcastMsg::GetDescriptionImageSearch(is_by_desc, msg) => {
-                if is_by_desc == "true" && self.last_found_images.is_some() {
+                if is_by_desc == "true" && self.all_found_images.is_some() {
                     self.search_images_by_vision(msg);
                 } else {
                     self.msg_to_coordinator(msg);
